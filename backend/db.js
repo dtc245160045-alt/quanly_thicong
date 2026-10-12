@@ -499,7 +499,51 @@ async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isD
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng và schema calendars (S-17), milestones (T-43), milestone_alerts (T-44) sẵn sàng.`);
+    // 11. Tạo bảng site_diaries & site_diary_items (TASK T50 & T51 - S-22: Nhật ký công trường & Ngày mưa)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_diaries (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        diary_date DATE NOT NULL,
+        weather_condition ENUM('sunny', 'cloudy', 'rain_intermittent', 'rain_all_day') NOT NULL DEFAULT 'sunny',
+        is_rain_day TINYINT(1) NOT NULL DEFAULT 0,
+        temperature_min DECIMAL(4, 1) NULL,
+        temperature_max DECIMAL(4, 1) NULL,
+        weather_notes VARCHAR(255) NULL,
+        manpower_count INT NOT NULL DEFAULT 0,
+        equipment_status TEXT NULL,
+        work_notes TEXT NULL,
+        is_locked TINYINT(1) NOT NULL DEFAULT 0,
+        locked_at DATETIME NULL,
+        locked_by INT NULL,
+        created_by INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_project_diary_date (project_id, diary_date),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_diary_project_date (project_id, diary_date),
+        INDEX idx_diary_rain (project_id, is_rain_day)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_diary_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        diary_id INT NOT NULL,
+        work_item_id INT NULL,
+        work_content TEXT NOT NULL,
+        quantity_done DECIMAL(12, 2) DEFAULT 0,
+        unit VARCHAR(50) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (diary_id) REFERENCES site_diaries(id) ON DELETE CASCADE,
+        FOREIGN KEY (work_item_id) REFERENCES work_items(id) ON DELETE SET NULL,
+        INDEX idx_item_diary (diary_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44) và site_diaries (T-50/51) sẵn sàng.`);
     return;
   } catch (err) {
     if (attempt < maxRetries) {

@@ -74,12 +74,27 @@ class SchedulerService {
     const schedule = calculateBackwardPass(normalizedTasks, topology.orderedIds, earlySchedule, normalizedDependencies);
     const sourceById = new Map(tasks.map(task => [normalizeId(task.id, 'task.id'), task]));
     const scheduledTasks = schedule.map(item => {
-      const source = sourceById.get(normalizeId(item.taskId, 'taskId'));
-      const resTask = { ...item, name: source?.name, code: source?.code, status: source?.status };
-      if (source?.actual_start !== undefined) resTask.actual_start = source.actual_start;
-      if (source?.actual_end !== undefined) resTask.actual_end = source.actual_end;
-      if (source?.percent_complete !== undefined) resTask.percent_complete = Number(source.percent_complete);
-      return resTask;
+      const idNorm = normalizeId(item.taskId, 'taskId');
+      const source = sourceById.get(idNorm);
+      const normTask = taskById.get(idNorm);
+      const taskObj = {
+        ...item,
+        name: source?.name,
+        code: source?.code,
+        status: source?.status
+      };
+      if (source?.actual_start !== undefined) taskObj.actual_start = source.actual_start;
+      if (source?.actual_end !== undefined) taskObj.actual_end = source.actual_end;
+      if (source?.percent_complete !== undefined) taskObj.percent_complete = Number(source.percent_complete);
+      const wId = source?.work_item_id ?? source?.workItemId;
+      if (wId !== undefined) {
+        taskObj.work_item_id = wId;
+      }
+      const preds = normTask?.predecessors || source?.predecessors;
+      if (preds && preds.length > 0) {
+        taskObj.predecessors = preds;
+      }
+      return taskObj;
     });
     const projectDuration = Math.max(...scheduledTasks.map(task => task.earlyFinish));
 
