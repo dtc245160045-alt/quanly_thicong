@@ -59,7 +59,7 @@ module.exports = (db) => {
   router.get('/projects/:projectId/scheduling/schedule', getSchedule);
   router.get('/projects/:projectId/scheduling/order', getSchedule);
 
-  // T-44: API truy vấn danh sách cảnh báo vượt mốc tiến độ
+  // T-44 & T-45: API truy vấn danh sách cảnh báo vượt mốc tiến độ kèm chuỗi việc gây chậm
   router.get('/projects/:projectId/milestone-alerts', async (req, res) => {
     const projectId = Number(req.params.projectId);
     if (!Number.isInteger(projectId) || projectId <= 0) {
@@ -68,8 +68,8 @@ module.exports = (db) => {
     if (checkProjectReadAccess(req, res, projectId)) return;
 
     try {
-      const statusFilter = req.query?.status;
-      const alerts = await schedulerService.milestoneAlertService.getProjectAlerts(projectId, { status: statusFilter });
+      const statusFilter = req.query?.status || 'active';
+      const alerts = await schedulerService.milestoneAlertService.getProjectAlertsWithChain(projectId, { status: statusFilter });
       return res.json({ success: true, projectId, data: alerts });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });

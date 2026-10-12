@@ -71,8 +71,17 @@ class SchedulerService {
     const schedule = calculateBackwardPass(normalizedTasks, topology.orderedIds, earlySchedule, normalizedDependencies);
     const sourceById = new Map(tasks.map(task => [normalizeId(task.id, 'task.id'), task]));
     const scheduledTasks = schedule.map(item => {
-      const source = sourceById.get(normalizeId(item.taskId, 'taskId'));
-      return { ...item, name: source?.name, code: source?.code, status: source?.status };
+      const idNorm = normalizeId(item.taskId, 'taskId');
+      const source = sourceById.get(idNorm);
+      const normTask = taskById.get(idNorm);
+      return {
+        ...item,
+        name: source?.name,
+        code: source?.code,
+        status: source?.status,
+        work_item_id: source?.work_item_id ?? source?.workItemId,
+        predecessors: normTask?.predecessors || source?.predecessors || []
+      };
     });
     const projectDuration = Math.max(...scheduledTasks.map(task => task.earlyFinish));
 

@@ -556,6 +556,9 @@
         <a class="btn-check-schedule" id="btn-open-schedule-page" style="text-decoration:none;display:inline-flex;align-items:center;background:#1d4ed8;" href="schedule.html" title="Xem bảng tiến độ và việc găng">
           📊 Bảng tiến độ
         </a>
+        <button class="btn-check-schedule" id="btn-milestone-alerts" style="background:#dc2626; border-color:#f87171;" title="Xem danh sách cảnh báo mốc tiến độ bị vượt kèm chuỗi việc gây chậm" onclick="openMilestoneAlertsModal()">
+          ⚠️ Cảnh báo mốc (<span id="alerts-count-badge">0</span>)
+        </button>
         <button class="btn-add-root" title="Thêm hạng mục cấp cao nhất" onclick="openAddModal(null)">
           + Thêm hạng mục gốc
         </button>
@@ -942,6 +945,26 @@
     </div>
   </div>
 
+  <!-- MODAL DANH SÁCH CẢNH BÁO MỐC & CHUỖI VIỆC GÂY CHẬM (T-45) -->
+  <div class="modal-overlay" id="milestone-alerts-modal">
+    <div class="modal-box modal-large">
+      <div class="modal-header" style="background: #fff5f5; border-bottom: 2px solid #feb2b2;">
+        <h3 style="color: #9b2c2c; display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span> Danh Sách Cảnh Báo Mốc Tiến Độ Bị Vượt & Chuỗi Việc Gây Chậm (T-45)
+        </h3>
+        <button class="btn-close-modal" onclick="closeMilestoneAlertsModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="milestone-alerts-modal-body">
+        <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+          Đang tải danh sách cảnh báo...
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeMilestoneAlertsModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const CURRENT_PROJECT_ID = 1;
     let rawWorkItems = [];
@@ -951,6 +974,119 @@
     let treeData = [];
     let currentUser = null;
     let milestonesMap = {}; // work_item_id -> active milestone
+
+    // Quản lý Modal Cảnh báo mốc & Chuỗi việc gây chậm (T-45)
+    async function openMilestoneAlertsModal() {
+      const modal = document.getElementById('milestone-alerts-modal');
+      const body = document.getElementById('milestone-alerts-modal-body');
+      modal.classList.add('show');
+      body.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);">Đang tải danh sách cảnh báo mốc tiến độ...</div>';
+
+      const { res, data } = await apiRequest(`/api/projects/${CURRENT_PROJECT_ID}/milestone-alerts?status=active`);
+      if (!res.ok || !data.success) {
+        body.innerHTML = `<div style="padding: 20px; color: var(--danger); text-align: center;">Không thể tải danh sách cảnh báo: ${data.message || 'Lỗi hệ thống'}</div>`;
+        return;
+      }
+
+      const alerts = data.data || [];
+      const badgeEl = document.getElementById('alerts-count-badge');
+      if (badgeEl) badgeEl.innerText = alerts.length;
+
+      if (alerts.length === 0) {
+        body.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; color: #166534;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🎉</div>
+            <div style="font-size: 16px; font-weight: 800;">Không có cảnh báo vượt mốc nào!</div>
+            <div style="font-size: 13px; margin-top: 4px; color: #15803d;">Tất cả các mốc tiến độ bắt buộc của dự án hiện đang đáp ứng đúng hoặc sớm hơn thời gian yêu cầu.</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `<div style="display: flex; flex-direction: column; gap: 20px;">`;
+      
+      alerts.forEach((alertItem, idx) => {
+        const title = alertItem.milestoneTitle || alertItem.milestone_title || `Mốc #${alertItem.milestoneId || alertItem.milestone_id}`;
+        const dueDate = alertItem.dueDate || alertItem.due_date || 'N/A';
+        const actualEF = alertItem.actualEarlyFinish || alertItem.max_early_finish || 'N/A';
+        const overdueDays = alertItem.overdueWorkdays !== undefined ? alertItem.overdueWorkdays : (alertItem.overdue_days || 0);
+        const chain = alertItem.chain || [];
+
+        html += `
+          <div style="background: #ffffff; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1.5px dashed #fca5a5; padding-bottom: 12px;">
+              <div>
+                <div style="font-size: 16px; font-weight: 800; color: #991b1b; display: flex; align-items: center; gap: 8px;">
+                  <span>🚩</span> ${title}
+                </div>
+                <div style="font-size: 12.5px; color: #475569; margin-top: 4px;">
+                  Mã milestone ID: <strong>#${alertItem.milestoneId || alertItem.milestone_id}</strong> | Hạng mục ID: <strong>#${alertItem.workItemId || alertItem.work_item_id}</strong>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span style="background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px;">
+                  📅 Hạn bắt buộc: ${dueDate}
+                </span>
+                <span style="background: #fff7ed; border: 1px solid #fdba74; color: #c2410c; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px;">
+                  ⏱️ Kết sớm thực tế (EF): ${actualEF}
+                </span>
+                <span style="background: #dc2626; color: #ffffff; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(220,38,38,0.3);">
+                  ⚠️ Vượt ${overdueDays} ngày làm việc
+                </span>
+              </div>
+            </div>
+
+            <!-- Chuỗi công việc gây chậm -->
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px;">
+              <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🔗</span> Chuỗi công việc nguyên nhân gây chậm tiến độ (Truy ngược từ nguyên nhân đầu tiên → công việc cuối):
+              </div>
+        `;
+
+        if (chain.length === 0) {
+          html += `<div style="font-size: 12.5px; color: #64748b; font-style: italic;">Chưa có dữ liệu chuỗi công việc phụ thuộc.</div>`;
+        } else {
+          html += `<div style="display: flex; flex-direction: column; gap: 6px;">`;
+          chain.forEach((task, tIdx) => {
+            const isLast = tIdx === chain.length - 1;
+            const taskName = task.name || `Công việc #${task.id}`;
+            const taskCode = task.code ? `[${task.code}] ` : '';
+            const esText = task.earlyStart !== undefined ? ` (ES: ${task.earlyStart}, EF: ${task.earlyFinish})` : '';
+
+            html += `
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 24px; height: 24px; border-radius: 50%; background: ${isLast ? '#dc2626' : '#2563eb'}; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  ${tIdx + 1}
+                </div>
+                <div style="flex: 1; padding: 8px 14px; background: ${isLast ? '#fef2f2' : '#ffffff'}; border: 1.5px solid ${isLast ? '#fca5a5' : '#cbd5e1'}; border-radius: 8px; font-size: 13px; font-weight: 700; color: ${isLast ? '#991b1b' : '#1e293b'}; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                  ${taskCode}${taskName}${esText} ${isLast ? '<span style="font-size: 11px; background: #dc2626; color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Gây trễ mốc</span>' : ''}
+                </div>
+              </div>
+            `;
+            if (!isLast) {
+              html += `
+                <div style="margin-left: 10px; color: #2563eb; font-size: 16px; font-weight: 900; line-height: 1;">
+                  ↓
+                </div>
+              `;
+            }
+          });
+          html += `</div>`;
+        }
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      body.innerHTML = html;
+    }
+
+    function closeMilestoneAlertsModal() {
+      document.getElementById('milestone-alerts-modal').classList.remove('show');
+    }
 
     // Định dạng thời lượng kiểu tiếng Việt: 3,5 ngày, 2 ngày, tổng 5,5 ngày
     function formatDurationVN(val) {
