@@ -241,6 +241,28 @@ module.exports = (db) => {
   // 3. Lấy chi tiết công việc
   router.get('/tasks/:id', async (req, res) => {
     const taskId = Number(req.params.id);
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID công việc không hợp lệ' });
+    }
+
+    if (db && db.isConnected === false) {
+      const { inMemoryTasks, inMemoryWorkItems } = require('../models/store');
+      const task = inMemoryTasks.find(t => t.id === taskId);
+      if (!task) {
+        return res.status(404).json({ success: false, message: 'Công việc không tồn tại' });
+      }
+      if (checkProjectReadAccess(req, res, task.project_id)) return;
+      const wi = inMemoryWorkItems.find(w => w.id === task.work_item_id);
+      return res.json({
+        success: true,
+        data: {
+          ...task,
+          work_item_name: wi?.name || null,
+          work_item_code: wi?.code || null
+        }
+      });
+    }
+
     try {
       const [rows] = await pool.query(
         `SELECT t.*, w.name AS work_item_name, w.code AS work_item_code 
@@ -257,6 +279,20 @@ module.exports = (db) => {
 
       res.json({ success: true, data: rows[0] });
     } catch (err) {
+      const { inMemoryTasks, inMemoryWorkItems } = require('../models/store');
+      const task = inMemoryTasks.find(t => t.id === taskId);
+      if (task) {
+        if (checkProjectReadAccess(req, res, task.project_id)) return;
+        const wi = inMemoryWorkItems.find(w => w.id === task.work_item_id);
+        return res.json({
+          success: true,
+          data: {
+            ...task,
+            work_item_name: wi?.name || null,
+            work_item_code: wi?.code || null
+          }
+        });
+      }
       res.status(500).json({ success: false, message: err.message });
     }
   });
@@ -279,6 +315,12 @@ module.exports = (db) => {
         actual_end: actual_end !== undefined ? (actual_end ? String(actual_end).trim() : null) : undefined,
         percent_complete: percent_complete !== undefined ? Number(percent_complete) : undefined
       });
+      if (!updated) {
+        return res.status(404).json({ success: false, message: 'Công việc không tồn tại' });
+      }
+      try {
+        await scheduleResultRepo.markStale(updated.project_id);
+      } catch {}
       return res.json({ success: true, message: 'Cập nhật công việc thành công', data: updated });
     }
 

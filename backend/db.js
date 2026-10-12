@@ -36,6 +36,7 @@ if (mysql) {
 
 // Safe pool wrapper: Tuyệt đối không chờ socket timeout nếu DB offline (phản hồi trong 0ms)
 const safePool = {
+  get isConnected() { return isConnected; },
   query: async (...args) => {
     if (!isConnected || !rawPool) {
       const err = new Error('DB_OFFLINE');

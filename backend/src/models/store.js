@@ -78,7 +78,8 @@ function canUserAccessProject(user, projectId) {
   if (user.role_name === 'project_manager' || user.role_id === 2) return true;
   // Viewer chỉ xem dự án được gán quyền
   const pId = Number(projectId);
-  const assigned = userProjectAssignments.get(user.id);
+  const uId = user.id || user.userId;
+  const assigned = userProjectAssignments.get(uId);
   if (assigned) {
     if (assigned.has('*') || assigned.has(pId)) return true;
   }
@@ -117,6 +118,7 @@ function createSession(user) {
   const { generateSessionToken } = require('../utils/security');
   const token = generateSessionToken();
   const sessionData = {
+    id: user.id,
     userId: user.id,
     email: user.email,
     full_name: user.full_name,

@@ -11,6 +11,7 @@ const inMemoryScheduleStatus = new Map();
 
 class ScheduleResultRepository {
   constructor(db) {
+    this.db = db;
     this.pool = db?.pool || db;
   }
 
@@ -19,6 +20,8 @@ class ScheduleResultRepository {
   }
 
   isDatabaseAvailable() {
+    const isConn = this.db?.isConnected ?? this.pool?.isConnected;
+    if (isConn === false) return false;
     return Boolean(this.pool && typeof this.pool.query === 'function' && typeof this.pool.getConnection === 'function');
   }
 
@@ -30,15 +33,17 @@ class ScheduleResultRepository {
     const pId = Number(projectId);
     if (!Number.isInteger(pId) || pId <= 0) return;
 
-    if (!this.isDatabaseAvailable()) {
-      const results = inMemoryScheduleResults.get(pId);
-      if (Array.isArray(results)) {
-        for (const item of results) {
-          item.is_stale = true;
-        }
+    // Luôn đồng bộ trạng thái in-memory cache
+    const results = inMemoryScheduleResults.get(pId);
+    if (Array.isArray(results)) {
+      for (const item of results) {
+        item.is_stale = true;
       }
-      const status = inMemoryScheduleStatus.get(pId) || {};
-      inMemoryScheduleStatus.set(pId, { ...status, needsRecalculation: true });
+    }
+    const status = inMemoryScheduleStatus.get(pId) || {};
+    inMemoryScheduleStatus.set(pId, { ...status, needsRecalculation: true });
+
+    if (!this.isDatabaseAvailable()) {
       return;
     }
 
@@ -55,9 +60,7 @@ class ScheduleResultRepository {
         [pId]
       );
     } catch (err) {
-      // Nếu bảng chưa được tạo trong môi trường mock, fallback in-memory
-      const status = inMemoryScheduleStatus.get(pId) || {};
-      inMemoryScheduleStatus.set(pId, { ...status, needsRecalculation: true });
+      // Fallback in-memory đã được set ở trên
     }
   }
 
@@ -208,6 +211,15 @@ class ScheduleResultRepository {
       return {
         tasks: rows.map(r => ({
           ...r,
+          id: Number(r.taskId),
+          taskId: Number(r.taskId),
+          duration: Number(r.duration),
+          earlyStart: Number(r.earlyStart),
+          earlyFinish: Number(r.earlyFinish),
+          lateStart: Number(r.lateStart),
+          lateFinish: Number(r.lateFinish),
+          totalFloat: Number(r.totalFloat),
+          percentComplete: Number(r.percentComplete),
           isCritical: Boolean(r.isCritical)
         })),
         projectDuration,
@@ -216,6 +228,22 @@ class ScheduleResultRepository {
         calculatedAt
       };
     } catch (err) {
+      const allResults = inMemoryScheduleResults.get(pId) || [];
+      const status = inMemoryScheduleStatus.get(pId) || {};
+      if (allResults.length > 0) {
+        const sorted = [...allResults].sort((a, b) => {
+          if (a.earlyStart !== b.earlyStart) return a.earlyStart - b.earlyStart;
+          return String(a.taskId).localeCompare(String(b.taskId));
+        });
+        const filtered = criticalOnly ? sorted.filter(t => t.isCritical) : sorted;
+        return {
+          tasks: filtered,
+          projectDuration: status.projectDuration ?? (sorted.length ? Math.max(...sorted.map(t => t.earlyFinish)) : 0),
+          totalTasks: sorted.length,
+          criticalTasksCount: sorted.filter(t => t.isCritical).length,
+          calculatedAt: status.calculatedAt || null
+        };
+      }
       return { tasks: [], projectDuration: 0, totalTasks: 0, criticalTasksCount: 0, calculatedAt: null, error: err.message };
     }
   }
@@ -230,57 +258,36 @@ class ScheduleResultRepository {
       throw new Error('projectId không hợp lệ');
     }
 
-    if (!this.pool || typeof this.pool.getConnection !== 'function') {
-      const now = new Date().toISOString();
-      const inMemList = scheduledTasks.map(t => ({
-        taskId: t.taskId ?? t.id,
-        name: t.name,
-        code: t.code,
-        duration: Number(t.duration),
-        earlyStart: Number(t.earlyStart),
-        earlyFinish: Number(t.earlyFinish),
-        lateStart: Number(t.lateStart),
-        lateFinish: Number(t.lateFinish),
-        totalFloat: Number(t.totalFloat),
-        isCritical: Boolean(t.isCritical),
-        is_stale: false,
-        calculatedAt: now
-      }));
-      inMemoryScheduleResults.set(pId, inMemList);
-      inMemoryScheduleStatus.set(pId, {
-        needsRecalculation: false,
-        projectDuration: Number(projectDuration),
-        calculatedAt: now,
-        hasCycle: false,
-        cycleInfo: null
-      });
+    const now = new Date().toISOString();
+    const inMemList = scheduledTasks.map(t => ({
+      taskId: Number(t.taskId ?? t.id),
+      id: Number(t.taskId ?? t.id),
+      name: t.name,
+      code: t.code,
+      duration: Number(t.duration),
+      actualStart: t.actualStart ?? t.actual_start ?? null,
+      actualEnd: t.actualEnd ?? t.actual_end ?? null,
+      percentComplete: Number(t.percentComplete ?? t.percent_complete ?? 0),
+      status: t.status,
+      earlyStart: Number(t.earlyStart),
+      earlyFinish: Number(t.earlyFinish),
+      lateStart: Number(t.lateStart),
+      lateFinish: Number(t.lateFinish),
+      totalFloat: Number(t.totalFloat),
+      isCritical: Boolean(t.isCritical),
+      is_stale: false,
+      calculatedAt: now
+    }));
+    inMemoryScheduleResults.set(pId, inMemList);
+    inMemoryScheduleStatus.set(pId, {
+      needsRecalculation: false,
+      projectDuration: Number(projectDuration),
+      calculatedAt: now,
+      hasCycle: false,
+      cycleInfo: null
+    });
 
-      // Nếu mock pool có hàm query nhưng không có getConnection
-      if (this.pool && typeof this.pool.query === 'function') {
-        try {
-          await this.pool.query('DELETE FROM schedule_results WHERE project_id = ?', [pId]);
-          if (scheduledTasks.length > 0) {
-            const values = scheduledTasks.map(t => [
-              pId,
-              Number(t.taskId ?? t.id),
-              Number(t.earlyStart),
-              Number(t.earlyFinish),
-              Number(t.lateStart),
-              Number(t.lateFinish),
-              Number(t.totalFloat),
-              Boolean(t.isCritical),
-              false
-            ]);
-            await this.pool.query(
-              `INSERT INTO schedule_results (
-                project_id, task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical, is_stale
-              ) VALUES ?`,
-              [values]
-            );
-          }
-        } catch {}
-      }
-
+    if (!this.isDatabaseAvailable() || !this.pool || typeof this.pool.getConnection !== 'function') {
       return { success: true };
     }
 

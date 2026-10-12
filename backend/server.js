@@ -43,8 +43,15 @@ app.get('/api/db-check', async (req, res) => {
       const [rows] = await db.pool.query('SELECT 1 + 1 AS solution');
       return res.json({ status: 'Connected', data: rows });
     }
+    // Nếu có cấu hình DB_HOST (môi trường Docker/CI), trả về 503 để CI polling đợi DB sẵn sàng
+    if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+      return res.status(503).json({ status: 'Connecting', message: 'Đang đợi kết nối MySQL container...' });
+    }
     return res.json({ status: 'Standalone', message: 'Đang chạy in-memory store (chưa kết nối MySQL container)' });
   } catch (error) {
+    if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+      return res.status(503).json({ status: 'Error', message: error.message });
+    }
     return res.json({ status: 'Standalone', message: error.message });
   }
 });

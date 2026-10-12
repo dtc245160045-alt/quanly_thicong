@@ -173,55 +173,6 @@ class SchedulerService {
       throw new Error('projectId không hợp lệ');
     }
 
-    if (this.db && this.db.isConnected === false) {
-      const { inMemoryTasks } = require('../../models/store');
-      const schedule = await this.getProjectSchedule(pId);
-      const sortedTasks = [...schedule.tasks].sort((a, b) => a.earlyStart - b.earlyStart);
-      const filteredTasks = criticalOnly ? sortedTasks.filter(t => t.isCritical) : sortedTasks;
-      return {
-        success: true,
-        projectId: pId,
-        isCached: false,
-        projectDuration: schedule.projectDuration,
-        totalTasks: sortedTasks.length,
-        criticalTasksCount: sortedTasks.filter(t => t.isCritical).length,
-        calculatedAt: new Date().toISOString(),
-        tasks: filteredTasks.map(t => {
-          const tId = Number(t.id || t.taskId);
-          const orig = inMemoryTasks.find(it => Number(it.id) === tId) || t;
-          const pct = Number(orig.percent_complete !== undefined ? orig.percent_complete : (t.percent_complete || 0));
-          const actStart = orig.actual_start || t.actual_start || null;
-          const actEnd = orig.actual_end || t.actual_end || null;
-          const name = orig.name || t.name || `Công việc #${tId}`;
-          const code = orig.code || t.code || `CV-${tId}`;
-          const status = orig.status || t.status || (pct >= 100 ? 'completed' : (actStart ? 'in_progress' : 'pending'));
-
-          return {
-            taskId: tId,
-            id: tId,
-            name: name,
-            taskName: name,
-            code: code,
-            taskCode: code,
-            duration: Number(t.duration || orig.duration || 1),
-            earlyStart: Number(t.earlyStart || 0),
-            earlyFinish: Number(t.earlyFinish || 0),
-            lateStart: Number(t.lateStart || 0),
-            lateFinish: Number(t.lateFinish || 0),
-            totalFloat: Number(t.totalFloat || 0),
-            isCritical: Boolean(t.isCritical),
-            status: status,
-            percentComplete: pct,
-            percent_complete: pct,
-            actualStart: actStart,
-            actual_start: actStart,
-            actualEnd: actEnd,
-            actual_end: actEnd
-          };
-        })
-      };
-    }
-
     const isStale = forceRecalculate || (await this.resultRepo.isStale(pId));
     if (!isStale) {
       const saved = await this.resultRepo.getSavedResults(pId, { criticalOnly });
@@ -291,20 +242,22 @@ class SchedulerService {
       calculatedAt: new Date().toISOString(),
       tasks: filteredTasks.map(t => {
         const act = actualMap.get(t.taskId ?? t.id);
+        const tId = Number(t.taskId ?? t.id);
         return {
-          taskId: t.taskId ?? t.id,
+          id: tId,
+          taskId: tId,
           name: t.name,
           code: t.code,
-          duration: t.duration,
+          duration: Number(t.duration),
           actualStart: act?.actual_start ? String(act.actual_start).split('T')[0] : (t.actualStart ?? null),
           actualEnd: act?.actual_end ? String(act.actual_end).split('T')[0] : (t.actualEnd ?? null),
           percentComplete: act?.percent_complete !== undefined && act?.percent_complete !== null ? Number(act.percent_complete) : Number(t.percentComplete ?? 0),
           status: act?.status || t.status,
-          earlyStart: t.earlyStart,
-          earlyFinish: t.earlyFinish,
-          lateStart: t.lateStart,
-          lateFinish: t.lateFinish,
-          totalFloat: t.totalFloat,
+          earlyStart: Number(t.earlyStart),
+          earlyFinish: Number(t.earlyFinish),
+          lateStart: Number(t.lateStart),
+          lateFinish: Number(t.lateFinish),
+          totalFloat: Number(t.totalFloat),
           isCritical: Boolean(t.isCritical)
         };
       })
