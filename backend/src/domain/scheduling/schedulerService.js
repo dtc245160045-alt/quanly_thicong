@@ -4,12 +4,15 @@ const { validateDependencyContract } = require('./contracts');
 const { calculateForwardPass } = require('../../algorithms/forwardPass');
 const { calculateBackwardPass, normalizeId } = require('../../algorithms/backwardPass');
 const { ScheduleResultRepository } = require('../../repositories/scheduleResultRepository');
+const { BaselineRepository } = require('../../repositories/baselineRepository');
 const { MilestoneAlertService } = require('../../services/milestoneAlertService');
 
 class SchedulerService {
   constructor(db) {
+    this.db = db;
     this.pool = db?.pool || db;
     this.resultRepo = new ScheduleResultRepository(db);
+    this.baselineRepo = new BaselineRepository(db);
     this.milestoneAlertService = new MilestoneAlertService(db);
   }
 
@@ -80,6 +83,9 @@ class SchedulerService {
         code: source?.code,
         status: source?.status
       };
+      if (source?.actual_start !== undefined) taskObj.actual_start = source.actual_start;
+      if (source?.actual_end !== undefined) taskObj.actual_end = source.actual_end;
+      if (source?.percent_complete !== undefined) taskObj.percent_complete = Number(source.percent_complete);
       const wId = source?.work_item_id ?? source?.workItemId;
       if (wId !== undefined) {
         taskObj.work_item_id = wId;
@@ -106,7 +112,7 @@ class SchedulerService {
     let dependencies = [];
     let integrationStatus = 'INTEGRATED WITH S-06';
 
-    if (this.pool?.query) {
+    if (this.pool && typeof this.pool.query === 'function' && this.db?.isConnected !== false) {
       const [tRows] = await this.pool.query(
         'SELECT id, project_id, work_item_id, name, code, duration, status FROM tasks WHERE project_id = ? ORDER BY id ASC',
         [projectId]
@@ -129,12 +135,14 @@ class SchedulerService {
         }));
       }
     } else {
-      const { inMemoryWorkItems } = require('../../models/store');
-      tasks = [
-        { id: 1, project_id: Number(projectId), work_item_id: 1, name: 'Đào đất hố móng trụ T1', code: 'CV-01', duration: 5, status: 'pending' },
-        { id: 2, project_id: Number(projectId), work_item_id: 1, name: 'Đổ bê tông lót móng', code: 'CV-02', duration: 3, status: 'pending' }
-      ];
-      dependencies = Array.isArray(mockDependencies) ? mockDependencies : [{ predecessorId: 1, successorId: 2, type: 'FS', lag: 0 }];
+      const { inMemoryTasks, inMemoryDependencies } = require('../../models/store');
+      tasks = inMemoryTasks.filter(t => t.project_id === Number(projectId));
+      dependencies = (inMemoryDependencies || []).filter(d => d.project_id === Number(projectId)).map(d => ({
+        predecessorId: d.predecessor_task_id,
+        successorId: d.successor_task_id,
+        type: d.dependency_type,
+        lag: Number(d.lag_days || 0)
+      }));
     }
 
     const computed = this.computeSchedule(tasks, dependencies);
@@ -163,6 +171,55 @@ class SchedulerService {
     const pId = Number(projectId);
     if (!Number.isInteger(pId) || pId <= 0) {
       throw new Error('projectId không hợp lệ');
+    }
+
+    if (this.db && this.db.isConnected === false) {
+      const { inMemoryTasks } = require('../../models/store');
+      const schedule = await this.getProjectSchedule(pId);
+      const sortedTasks = [...schedule.tasks].sort((a, b) => a.earlyStart - b.earlyStart);
+      const filteredTasks = criticalOnly ? sortedTasks.filter(t => t.isCritical) : sortedTasks;
+      return {
+        success: true,
+        projectId: pId,
+        isCached: false,
+        projectDuration: schedule.projectDuration,
+        totalTasks: sortedTasks.length,
+        criticalTasksCount: sortedTasks.filter(t => t.isCritical).length,
+        calculatedAt: new Date().toISOString(),
+        tasks: filteredTasks.map(t => {
+          const tId = Number(t.id || t.taskId);
+          const orig = inMemoryTasks.find(it => Number(it.id) === tId) || t;
+          const pct = Number(orig.percent_complete !== undefined ? orig.percent_complete : (t.percent_complete || 0));
+          const actStart = orig.actual_start || t.actual_start || null;
+          const actEnd = orig.actual_end || t.actual_end || null;
+          const name = orig.name || t.name || `Công việc #${tId}`;
+          const code = orig.code || t.code || `CV-${tId}`;
+          const status = orig.status || t.status || (pct >= 100 ? 'completed' : (actStart ? 'in_progress' : 'pending'));
+
+          return {
+            taskId: tId,
+            id: tId,
+            name: name,
+            taskName: name,
+            code: code,
+            taskCode: code,
+            duration: Number(t.duration || orig.duration || 1),
+            earlyStart: Number(t.earlyStart || 0),
+            earlyFinish: Number(t.earlyFinish || 0),
+            lateStart: Number(t.lateStart || 0),
+            lateFinish: Number(t.lateFinish || 0),
+            totalFloat: Number(t.totalFloat || 0),
+            isCritical: Boolean(t.isCritical),
+            status: status,
+            percentComplete: pct,
+            percent_complete: pct,
+            actualStart: actStart,
+            actual_start: actStart,
+            actualEnd: actEnd,
+            actual_end: actEnd
+          };
+        })
+      };
     }
 
     const isStale = forceRecalculate || (await this.resultRepo.isStale(pId));
@@ -253,6 +310,57 @@ class SchedulerService {
       })
     };
   }
+
+  /**
+   * S-18 / SCRUM-91: Lấy kế hoạch gốc hiện hành của dự án (AC 2 & AC 4)
+   */
+  async getProjectBaseline(projectId) {
+    const pId = Number(projectId);
+    if (!Number.isInteger(pId) || pId <= 0) {
+      throw new Error('projectId không hợp lệ');
+    }
+    return this.baselineRepo.getCurrentBaseline(pId);
+  }
+
+  /**
+   * S-18 / SCRUM-91: Chốt kế hoạch gốc (AC 1 & AC 3)
+   * Lấy kết quả tính toán tiến độ hiện tại để lưu thành baseline độc lập
+   */
+  async lockProjectBaseline(projectId, { userId = null, userName = 'Ban Quản Lý', reason = null } = {}) {
+    const pId = Number(projectId);
+    if (!Number.isInteger(pId) || pId <= 0) {
+      throw new Error('projectId không hợp lệ');
+    }
+
+    // Đảm bảo tiến độ đã được tính toán đầy đủ
+    const scheduleResults = await this.getProjectScheduleResults(pId, { forceRecalculate: false });
+    if (scheduleResults.hasCycle) {
+      throw new Error('Không thể chốt kế hoạch gốc vì dự án đang có vòng lặp phụ thuộc (chu trình)');
+    }
+    if (!scheduleResults.tasks || scheduleResults.tasks.length === 0) {
+      throw new Error('Dự án chưa có công việc nào để chốt kế hoạch gốc');
+    }
+
+    return this.baselineRepo.lockBaseline(pId, {
+      tasks: scheduleResults.tasks,
+      projectDuration: scheduleResults.projectDuration,
+      userId,
+      userName,
+      reason
+    });
+  }
+
+  /**
+   * S-18 / SCRUM-91: Lấy lịch sử các lần chốt kế hoạch gốc (AC 3)
+   */
+  async getProjectBaselineHistory(projectId) {
+    const pId = Number(projectId);
+    if (!Number.isInteger(pId) || pId <= 0) {
+      throw new Error('projectId không hợp lệ');
+    }
+    return this.baselineRepo.getHistory(pId);
+  }
 }
 
 module.exports = { SchedulerService };
+

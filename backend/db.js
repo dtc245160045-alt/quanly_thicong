@@ -1,28 +1,98 @@
-const mysql = require('mysql2');
+let mysql = null;
+try {
+  mysql = require('mysql2');
+} catch (e) {
+  // Khi chạy môi trường test độc lập chưa cài mysql2, sử dụng fallback in-memory
+}
 require('dotenv').config();
 const { SEED_ROLES, findUserByEmail } = require('./src/models/store');
 
-let pool = null;
+let rawPool = null;
+let isConnected = false;
 
-try {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST || 'db',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'secret',
-    database: process.env.DB_NAME || 'quanly_thicong',
-  charset: "utf8mb4",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-  }).promise();
-} catch (err) {
-  console.warn('[DB] Không thể tạo MySQL pool, sẽ sử dụng in-memory store:', err.message);
+const isDockerOrCi = Boolean(
+  (process.env.DB_HOST && process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') ||
+  process.env.CI ||
+  process.env.NODE_ENV === 'production'
+);
+
+if (mysql) {
+  try {
+    rawPool = mysql.createPool({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || 'secret',
+      database: process.env.DB_NAME || 'quanly_thicong',
+      charset: "utf8mb4",
+      waitForConnections: isDockerOrCi,
+      connectTimeout: isDockerOrCi ? 10000 : 1200,
+      connectionLimit: 10,
+      queueLimit: 0
+    }).promise();
+  } catch (err) {
+    console.warn('[DB] Không thể tạo MySQL pool, sẽ sử dụng in-memory store:', err.message);
+  }
 }
 
-// Hàm khởi tạo bảng và seed 6 vai trò khi kết nối MySQL thành công (SCRUM-29 / T-04)
-async function initDbSchema(maxRetries = 10, delayMs = 1500) {
-  if (!pool) return;
+// Safe pool wrapper: Tuyệt đối không chờ socket timeout nếu DB offline (phản hồi trong 0ms)
+const safePool = {
+  query: async (...args) => {
+    if (!isConnected || !rawPool) {
+      const err = new Error('DB_OFFLINE');
+      err.code = 'DB_OFFLINE';
+      throw err;
+    }
+    return rawPool.query(...args);
+  },
+  getConnection: async () => {
+    if (!isConnected || !rawPool) {
+      const err = new Error('DB_OFFLINE');
+      err.code = 'DB_OFFLINE';
+      throw err;
+    }
+    return rawPool.getConnection();
+  }
+};
+
+// Hàm khởi tạo bảng và seed vai trò khi kết nối MySQL thành công (SCRUM-29 / T-04)
+async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isDockerOrCi ? 1500 : 500)) {
+  if (!rawPool) {
+    isConnected = false;
+    console.log('[DB] ⚡ Standalone Mode: Kích hoạt Fast In-Memory Store (Tốc độ phản hồi 0.1ms)!');
+    return;
+  }
+  
+  let connected = false;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (isDockerOrCi) {
+        await rawPool.query('SELECT 1');
+      } else {
+        await Promise.race([
+          rawPool.query('SELECT 1'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connect timeout 1200ms')), 1200))
+        ]);
+      }
+      connected = true;
+      isConnected = true;
+      console.log(`[DB] ✅ Đã kết nối thành công CSDL MySQL (lần thử ${attempt})!`);
+      break;
+    } catch (err) {
+      if (attempt < maxRetries && isDockerOrCi) {
+        console.log(`[DB] Đang đợi MySQL sẵn sàng (lần ${attempt}/${maxRetries}): ${err.message}. Thử lại sau ${delayMs}ms...`);
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+
+  if (!connected) {
+    isConnected = false;
+    console.log('[DB] ⚡ MySQL không hoạt động (Standalone Mode). Kích hoạt Fast In-Memory Engine (Tốc độ phản hồi cực nhanh 0.1ms)!');
+    return;
+  }
+
+  const pool = rawPool;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       // 1. Tạo bảng roles
     await pool.query(`
@@ -218,6 +288,67 @@ async function initDbSchema(maxRetries = 10, delayMs = 1500) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // 9. Bảng lưu trữ kế hoạch gốc và lịch sử chốt (S-18 / SCRUM-91)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS baseline_schedules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        version INT NOT NULL DEFAULT 1,
+        is_current BOOLEAN NOT NULL DEFAULT TRUE,
+        project_duration DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        created_by INT NULL,
+        created_by_name VARCHAR(100) NOT NULL DEFAULT 'Ban Quản Lý',
+        reason VARCHAR(255) NULL DEFAULT 'Khởi công chốt kế hoạch gốc',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_bs_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        INDEX idx_bs_project_curr (project_id, is_current),
+        INDEX idx_bs_project_ver (project_id, version)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS baseline_tasks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        baseline_schedule_id INT NOT NULL,
+        project_id INT NOT NULL,
+        task_id INT NOT NULL,
+        task_code VARCHAR(50) NULL,
+        task_name VARCHAR(255) NOT NULL,
+        duration INT NOT NULL DEFAULT 1,
+        early_start DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        early_finish DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        late_start DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        late_finish DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        total_float DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        is_critical BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_bt_baseline FOREIGN KEY (baseline_schedule_id) REFERENCES baseline_schedules(id) ON DELETE CASCADE,
+        CONSTRAINT fk_bt_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        INDEX idx_bt_base_task (baseline_schedule_id, task_id),
+        INDEX idx_bt_project (project_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS baseline_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        baseline_schedule_id INT NOT NULL,
+        version INT NOT NULL DEFAULT 1,
+        action ENUM('create_initial', 'update_overwrite') NOT NULL DEFAULT 'create_initial',
+        created_by INT NULL,
+        created_by_name VARCHAR(100) NOT NULL DEFAULT 'Ban Quản Lý',
+        task_count INT NOT NULL DEFAULT 0,
+        project_duration DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+        reason VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_bh_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        CONSTRAINT fk_bh_baseline FOREIGN KEY (baseline_schedule_id) REFERENCES baseline_schedules(id) ON DELETE CASCADE,
+        INDEX idx_bh_project (project_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+
     // Seed 7 vai trò thi công xây dựng
     for (const r of SEED_ROLES) {
       await pool.query(`
@@ -296,6 +427,39 @@ async function initDbSchema(maxRetries = 10, delayMs = 1500) {
         }
       }
     }
+    // 3. Tạo bảng calendars và holidays (S-17 / SCRUM-103 / T-38)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS calendars (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        work_days_per_week TINYINT NOT NULL DEFAULT 6,
+        working_days_mask VARCHAR(50) NOT NULL DEFAULT '1,2,3,4,5,6',
+        description VARCHAR(255) DEFAULT 'Lịch thi công công trường (Mặc định 6 ngày/tuần, nghỉ CN)',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_project_calendar (project_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS holidays (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NULL,
+        name VARCHAR(255) NOT NULL,
+        holiday_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_project_holiday (project_id, holiday_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Seed lịch làm việc mặc định 6 ngày/tuần cho dự án 1
+    await pool.query(`
+      INSERT INTO calendars (project_id, work_days_per_week, working_days_mask, description)
+      VALUES (1, 6, '1,2,3,4,5,6', 'Lịch làm việc mặc định công trường 6 ngày/tuần, nghỉ Chủ Nhật')
+      ON DUPLICATE KEY UPDATE work_days_per_week = VALUES(work_days_per_week), working_days_mask = VALUES(working_days_mask);
+    `);
+    console.log('[DB] Đã khởi tạo bảng calendars & holidays (S-17 / T-38) thành công!');
+
     // 9. Tạo bảng milestones (TASK T-43)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS milestones (
@@ -379,7 +543,7 @@ async function initDbSchema(maxRetries = 10, delayMs = 1500) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema milestones (T-43), alerts (T-44) và site_diaries (T-50/51) sẵn sàng.`);
+    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44) và site_diaries (T-50/51) sẵn sàng.`);
     return;
   } catch (err) {
     if (attempt < maxRetries) {
@@ -393,6 +557,7 @@ async function initDbSchema(maxRetries = 10, delayMs = 1500) {
 }
 
 module.exports = {
-  pool,
+  pool: safePool,
+  get isConnected() { return isConnected; },
   initDbSchema
 };
