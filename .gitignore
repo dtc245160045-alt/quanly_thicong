@@ -5,4 +5,5 @@ node_modules/
 dist/
 backups/
 temp_backups/
-
+backend/uploads/diaries/*
+!backend/uploads/diaries/.gitkeep
