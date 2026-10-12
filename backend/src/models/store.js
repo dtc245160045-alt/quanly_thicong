@@ -300,6 +300,111 @@ function closeMilestoneAlert(milestone_id) {
   return updatedCount;
 }
 
+// ==========================================
+// NHẬT KÝ CÔNG TRƯỜNG & NGÀY MƯA (T50 / T51 - S-22)
+// ==========================================
+let inMemorySiteDiaries = [];
+
+function getSiteDiaries(filter = {}) {
+  let list = [...inMemorySiteDiaries];
+  if (filter.project_id !== undefined) {
+    list = list.filter(d => Number(d.project_id) === Number(filter.project_id));
+  }
+  if (filter.date) {
+    list = list.filter(d => d.diary_date === filter.date);
+  }
+  if (filter.start_date && filter.end_date) {
+    list = list.filter(d => d.diary_date >= filter.start_date && d.diary_date <= filter.end_date);
+  }
+  if (filter.is_rain_day !== undefined) {
+    const isRain = Boolean(filter.is_rain_day);
+    list = list.filter(d => Boolean(d.is_rain_day) === isRain);
+  }
+  return list.sort((a, b) => a.diary_date.localeCompare(b.diary_date));
+}
+
+function getSiteDiaryByDate(projectId, date) {
+  const pId = Number(projectId);
+  return inMemorySiteDiaries.find(d => Number(d.project_id) === pId && d.diary_date === date) || null;
+}
+
+function saveSiteDiaryEntry({
+  project_id,
+  diary_date,
+  weather_condition = 'sunny',
+  is_rain_day = false,
+  temperature_min = null,
+  temperature_max = null,
+  weather_notes = '',
+  manpower_count = 0,
+  equipment_status = '',
+  work_notes = '',
+  created_by = 1
+}) {
+  const pId = Number(project_id);
+  const nowStr = new Date().toISOString();
+
+  // Kiểm tra khóa sổ (S-24)
+  const existing = inMemorySiteDiaries.find(d => Number(d.project_id) === pId && d.diary_date === diary_date);
+  if (existing && (existing.is_locked === 1 || existing.is_locked === true)) {
+    const err = new Error('Nhật ký của ngày này đã bị khóa sổ, không thể chỉnh sửa.');
+    err.status = 423;
+    throw err;
+  }
+
+  // Tự động suy luận is_rain_day nếu weather_condition là rain_all_day
+  const calculatedIsRain = weather_condition === 'rain_all_day' || Boolean(is_rain_day);
+
+  if (existing) {
+    existing.weather_condition = weather_condition;
+    existing.is_rain_day = calculatedIsRain ? 1 : 0;
+    existing.temperature_min = temperature_min;
+    existing.temperature_max = temperature_max;
+    existing.weather_notes = weather_notes;
+    existing.manpower_count = Number(manpower_count || 0);
+    existing.equipment_status = equipment_status;
+    existing.work_notes = work_notes;
+    existing.updated_at = nowStr;
+    return existing;
+  } else {
+    const newId = inMemorySiteDiaries.length > 0 ? Math.max(...inMemorySiteDiaries.map(d => d.id)) + 1 : 1;
+    const newEntry = {
+      id: newId,
+      project_id: pId,
+      diary_date,
+      weather_condition,
+      is_rain_day: calculatedIsRain ? 1 : 0,
+      temperature_min,
+      temperature_max,
+      weather_notes,
+      manpower_count: Number(manpower_count || 0),
+      equipment_status,
+      work_notes,
+      is_locked: 0,
+      locked_at: null,
+      locked_by: null,
+      created_by: Number(created_by || 1),
+      created_at: nowStr,
+      updated_at: nowStr
+    };
+    inMemorySiteDiaries.push(newEntry);
+    return newEntry;
+  }
+}
+
+function lockSiteDiary(projectId, date, userId) {
+  const diary = getSiteDiaryByDate(projectId, date);
+  if (!diary) {
+    const err = new Error('Không tìm thấy nhật ký của ngày này để khóa sổ.');
+    err.status = 404;
+    throw err;
+  }
+  diary.is_locked = 1;
+  diary.locked_at = new Date().toISOString();
+  diary.locked_by = Number(userId || 1);
+  return diary;
+}
+
 module.exports = {
   SEED_ROLES,
   findUserByEmail,
@@ -315,10 +420,15 @@ module.exports = {
   inMemoryWorkItems,
   inMemoryMilestones,
   inMemoryMilestoneAlerts,
+  inMemorySiteDiaries,
   findWorkItemById,
   getMilestones,
   createMilestoneData,
   getMilestoneAlerts,
   saveMilestoneAlert,
-  closeMilestoneAlert
+  closeMilestoneAlert,
+  getSiteDiaries,
+  getSiteDiaryByDate,
+  saveSiteDiaryEntry,
+  lockSiteDiary
 };

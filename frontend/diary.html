@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nhật Ký Thi Công & Đánh Dấu Ngày Mưa (T51) | Quản Lý Thi Công</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-canvas: #f8fafc;
+      --card-bg: #ffffff;
+      --border-card: #e2e8f0;
+      --border-outer: #94a3b8;
+      --brand-blue: #1d4ed8;
+      --brand-blue-hover: #1e40af;
+      --brand-blue-soft: #eff6ff;
+      --emerald-bg: #ecfdf5;
+      --emerald-border: #a7f3d0;
+      --emerald-text: #065f46;
+      --amber-bg: #fef3c7;
+      --amber-border: #f59e0b;
+      --amber-text: #92400e;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --danger-border: #f87171;
+      --danger-text: #991b1b;
+      --rain-blue: #0284c7;
+      --rain-bg: #e0f2fe;
+      --rain-border: #7dd3fc;
+      --text-title: #0f172a;
+      --text-body: #1e293b;
+      --text-muted: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg-canvas); color: var(--text-body); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Topbar */
+    .topbar {
+      height: 68px; background: #ffffff; border-bottom: 2px solid var(--border-card);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; position: sticky; top: 0; z-index: 50;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 40px; height: 40px; background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3); border: 1px solid rgba(255,255,255,0.3);
+      flex-shrink: 0; font-size: 20px;
+    }
+    .brand-info h1 { font-size: 16px; font-weight: 800; color: var(--text-title); line-height: 1.2; }
+    .brand-info span { font-size: 10px; font-weight: 800; color: var(--rain-blue); letter-spacing: 0.6px; text-transform: uppercase; }
+
+    .nav-dock {
+      display: flex; align-items: center; gap: 4px; background: #f1f5f9;
+      padding: 4px; border-radius: 10px; border: 1px solid var(--border-card);
+    }
+    .nav-item {
+      padding: 7px 14px; font-size: 13px; font-weight: 700; color: var(--text-muted);
+      text-decoration: none; border-radius: 7px; transition: all 0.15s ease;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-item:hover { color: var(--text-title); background: #ffffff; }
+    .nav-item.active { background: #ffffff; color: var(--brand-blue); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+    .user-pill {
+      display: flex; align-items: center; gap: 10px;
+      padding: 5px 12px 5px 6px; background: #f8fafc;
+      border: 1.5px solid var(--border-card); border-radius: 9999px;
+    }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #0284c7, #1d4ed8);
+      color: #ffffff; font-weight: 800; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .user-meta { display: flex; flex-direction: column; text-align: left; }
+    .user-name { font-size: 12px; font-weight: 700; color: var(--text-title); line-height: 1.2; }
+    .user-role { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+
+    /* Main Container */
+    .main-container {
+      max-width: 1400px; width: 100%; margin: 0 auto;
+      padding: 24px; display: flex; flex-direction: column; gap: 24px;
+    }
+
+    /* Page Header */
+    .page-header {
+      background: #ffffff; border: 1px solid var(--border-card); border-radius: 14px;
+      padding: 20px 24px; display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .header-titles h2 { font-size: 20px; font-weight: 800; color: var(--text-title); display: flex; align-items: center; gap: 8px; }
+    .header-titles p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    
+    .week-navigator {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .btn-nav {
+      background: #f8fafc; border: 1.5px solid var(--border-card); color: var(--text-title);
+      padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-nav:hover { background: #e2e8f0; border-color: #cbd5e1; }
+    .input-date-nav {
+      padding: 8px 12px; border: 1.5px solid var(--border-card); border-radius: 8px;
+      font-size: 13px; font-weight: 600; color: var(--text-title); outline: none;
+    }
+    .input-date-nav:focus { border-color: var(--brand-blue); }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;
+    }
+    .metric-card {
+      background: #ffffff; border: 1px solid var(--border-card); border-radius: 12px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden;
+    }
+    .metric-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--brand-blue);
+    }
+    .metric-card.rain::before { background: #0284c7; }
+    .metric-card.warning::before { background: #f59e0b; }
+    .metric-card.danger::before { background: #dc2626; }
+    .metric-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 26px; font-weight: 800; color: var(--text-title); display: flex; align-items: baseline; gap: 6px; }
+    .metric-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Alert Banner */
+    .impact-banner {
+      background: var(--rain-bg); border: 1.5px solid var(--rain-border); border-radius: 12px;
+      padding: 16px 20px; display: flex; align-items: flex-start; gap: 14px;
+    }
+    .impact-icon { font-size: 24px; flex-shrink: 0; }
+    .impact-content h3 { font-size: 15px; font-weight: 800; color: #0369a1; }
+    .impact-content p { font-size: 13px; color: #0c4a6e; margin-top: 4px; line-height: 1.5; }
+
+    /* Layout Split: Weekly Calendar & Day Form */
+    .content-grid {
+      display: grid; grid-template-columns: 1fr 420px; gap: 24px;
+    }
+
+    /* Weekly Grid Cards */
+    .section-card {
+      background: #ffffff; border: 1px solid var(--border-card); border-radius: 14px;
+      padding: 20px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1.5px solid #f1f5f9; padding-bottom: 12px;
+    }
+    .section-title { font-size: 16px; font-weight: 800; color: var(--text-title); display: flex; align-items: center; gap: 8px; }
+    .section-desc { font-size: 12.5px; color: var(--text-muted); }
+
+    .week-days-container {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+      overflow-x: auto; padding-bottom: 6px;
+    }
+    .day-card {
+      background: #f8fafc; border: 1.5px solid var(--border-card); border-radius: 10px;
+      padding: 14px; display: flex; flex-direction: column; gap: 10px;
+      transition: all 0.15s ease; cursor: pointer; min-width: 140px; position: relative;
+    }
+    .day-card:hover {
+      border-color: var(--brand-blue); background: #ffffff;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08); transform: translateY(-2px);
+    }
+    .day-card.active-selected {
+      border-color: var(--brand-blue); background: #ffffff;
+      outline: 2px solid var(--brand-blue);
+    }
+    .day-card.rain-day {
+      background: #f0f9ff; border-color: var(--rain-border);
+    }
+    .day-header {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .day-title { font-size: 13.5px; font-weight: 800; color: var(--text-title); }
+    .day-date { font-size: 11.5px; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    
+    .badge-weather {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;
+      width: fit-content; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .badge-weather.rain { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-weather.rain-intermittent { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .badge-weather.sunny { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .badge-weather.cloudy { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .badge-weather.empty { background: #f1f5f9; color: #94a3b8; border: 1px dashed #cbd5e1; }
+
+    .day-info-row {
+      font-size: 12px; color: var(--text-body); display: flex; align-items: center; gap: 6px;
+    }
+
+    /* Weekend expansion section */
+    .weekend-container {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;
+    }
+
+    /* Form Styles */
+    .form-group {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .form-label {
+      font-size: 13px; font-weight: 700; color: var(--text-title); display: flex; justify-content: space-between;
+    }
+    .form-label span.req { color: var(--danger); }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-card);
+      border-radius: 8px; font-size: 13px; color: var(--text-title); outline: none;
+      background: #ffffff; transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+    }
+    .form-textarea { resize: vertical; min-height: 70px; }
+
+    /* Weather condition radio cards */
+    .weather-options {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .weather-opt {
+      border: 1.5px solid var(--border-card); border-radius: 8px; padding: 10px;
+      display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.15s;
+      background: #f8fafc; font-size: 12.5px; font-weight: 700; color: var(--text-body);
+    }
+    .weather-opt:hover { background: #f1f5f9; }
+    .weather-opt input { cursor: pointer; }
+    .weather-opt.selected {
+      border-color: var(--rain-blue); background: #f0f9ff; color: #0369a1;
+    }
+
+    .checkbox-rain-mark {
+      background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px;
+      padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer;
+    }
+    .checkbox-rain-mark input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); }
+    .checkbox-rain-mark label { font-size: 13px; font-weight: 800; color: #9f1239; cursor: pointer; }
+
+    .form-actions {
+      display: flex; flex-direction: column; gap: 8px; margin-top: 10px;
+    }
+    .btn-save {
+      background: var(--brand-blue); color: #ffffff; border: none; border-radius: 9px;
+      padding: 12px 18px; font-size: 14px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s, transform 0.05s;
+    }
+    .btn-save:hover { background: var(--brand-blue-hover); }
+    .btn-save:active { transform: translateY(1px); }
+    .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-preset {
+      background: #f0fdf4; border: 1.5px solid #86efac; color: #166534;
+      border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-preset:hover { background: #dcfce7; }
+
+    /* Alert Banner Messages */
+    .toast-msg {
+      padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      display: none; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .toast-success { background: var(--emerald-bg); border: 1.5px solid var(--emerald-border); color: var(--emerald-text); }
+    .toast-error { background: var(--danger-bg); border: 1.5px solid var(--danger-border); color: var(--danger-text); }
+
+    /* Table of Delayed Tasks correlation */
+    .table-responsive {
+      width: 100%; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 8px;
+    }
+    .table-tasks {
+      width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;
+    }
+    .table-tasks th {
+      background: #f8fafc; padding: 10px 14px; font-weight: 800; color: var(--text-muted);
+      border-bottom: 1px solid var(--border-card); text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .table-tasks td {
+      padding: 10px 14px; border-bottom: 1px solid var(--border-card); color: var(--text-body);
+    }
+    .table-tasks tr:last-child td { border-bottom: none; }
+
+    /* RESPONSIVE CSS - NFR PHONE EXCELLENCE */
+    @media (max-width: 1024px) {
+      .content-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .topbar { padding: 0 16px; height: auto; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+      .nav-dock { width: 100%; overflow-x: auto; justify-content: flex-start; }
+      .main-container { padding: 14px; gap: 16px; }
+      .week-days-container { grid-template-columns: repeat(5, 160px); }
+      .weather-options { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; align-items: flex-start; }
+      .week-navigator { width: 100%; justify-content: space-between; }
+      .input-date-nav { flex-grow: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand-group">
+      <div class="brand-icon">🌧️</div>
+      <div class="brand-info">
+        <h1>QUẢN LÝ THI CÔNG</h1>
+        <span>S-22 / TASK T51: NHẬT KÝ THỜI TIẾT & NGÀY MƯA</span>
+      </div>
+    </div>
+
+    <!-- Navigation Dock -->
+    <nav class="nav-dock">
+      <a href="/index.html" class="nav-item">📊 Tổng quan</a>
+      <a href="/wbs.html" class="nav-item">🌲 WBS & Mốc</a>
+      <a href="/schedule.html" class="nav-item">📅 Bảng tiến độ</a>
+      <a href="/gantt.html" class="nav-item">📈 Sơ đồ Gantt</a>
+      <a href="/diary.html" class="nav-item active">🌧️ Nhật ký & Ngày mưa</a>
+      <a href="/calendar.html" class="nav-item">⚙️ Lịch làm việc</a>
+    </nav>
+
+    <!-- User Information -->
+    <div class="user-pill">
+      <div class="user-avatar" id="avatar-letter">D</div>
+      <div class="user-meta">
+        <span class="user-name" id="display-user-name">Trần Mạnh Dũng</span>
+        <span class="user-role" id="display-user-role">Chỉ huy trưởng công trình</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-container">
+
+    <!-- Page Header & Week Navigator -->
+    <div class="page-header">
+      <div class="header-titles">
+        <h2>🌧️ Form Thống Kê & Đánh Dấu Ngày Mưa (T51)</h2>
+        <p>Ghi nhận nhật ký đầu ngày: Nhân lực, thiết bị, tình trạng thời tiết và đối chiếu ngày mưa với tiến độ thi công theo tuần.</p>
+      </div>
+
+      <div class="week-navigator">
+        <button class="btn-nav" id="btn-prev-week" onclick="navigateWeek(-7)">◀ Tuần trước</button>
+        <input type="date" class="input-date-nav" id="week-target-date" onchange="onDatePickerChange()">
+        <button class="btn-nav" id="btn-today" onclick="selectToday()">Hôm nay</button>
+        <button class="btn-nav" id="btn-next-week" onclick="navigateWeek(7)">Tuần sau ▶</button>
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-label">Tuần làm việc</span>
+        <div class="metric-value" id="metric-week-range">-- / --</div>
+        <span class="metric-sub">Thứ Hai đến Thứ Sáu (5 ngày chính thức)</span>
+      </div>
+
+      <div class="metric-card rain">
+        <span class="metric-label">Số ngày mưa cả ngày</span>
+        <div class="metric-value" id="metric-rain-count">0 / 5</div>
+        <span class="metric-sub" id="metric-rain-ratio">Tỷ lệ ảnh hưởng: 0%</span>
+      </div>
+
+      <div class="metric-card warning">
+        <span class="metric-label">Tổng nhân lực tuần</span>
+        <div class="metric-value" id="metric-manpower-avg">0</div>
+        <span class="metric-sub">Lao động trung bình / ngày</span>
+      </div>
+
+      <div class="metric-card" id="metric-card-risk">
+        <span class="metric-label">Đánh giá tiến độ</span>
+        <div class="metric-value" style="font-size: 19px;" id="metric-risk-badge">BÌNH THƯỜNG</div>
+        <span class="metric-sub" id="metric-risk-sub">Không có gián đoạn</span>
+      </div>
+    </div>
+
+    <!-- Impact & Delay Correlation Banner -->
+    <div class="impact-banner" id="impact-banner">
+      <div class="impact-icon" id="impact-icon">💡</div>
+      <div class="impact-content">
+        <h3 id="impact-title">Đối chiếu tiến độ thi công & ảnh hưởng thời tiết</h3>
+        <p id="impact-desc">Đang tải dữ liệu đối chiếu...</p>
+      </div>
+    </div>
+
+    <!-- Split Grid: Weekly Grid vs Form -->
+    <div class="content-grid">
+
+      <!-- Left Column: Weekly Grid (Thứ Hai -> Thứ Sáu) -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">📅 Tuần Làm Việc (Thứ Hai đến Thứ Sáu)</h3>
+            <span class="section-desc">Bấm vào bất kỳ ngày nào để tải hoặc sửa nhật ký chi tiết trên form bên phải.</span>
+          </div>
+          <button class="btn-preset" onclick="fillMondayToFridayRainPreset()" title="Thực hiện AC: Đánh dấu mưa cả tuần T2 -> T6">
+            ⚡ Thử nghiệm AC: Nhập Mưa Cả Tuần (T2 ➔ T6)
+          </button>
+        </div>
+
+        <!-- 5 Workdays Container -->
+        <div class="week-days-container" id="workdays-grid">
+          <!-- Rendered via JS -->
+          <div style="padding: 20px; color: var(--text-muted); text-align: center; grid-column: 1 / -1;">Đang tải danh sách tuần...</div>
+        </div>
+
+        <!-- Weekend Extension (Thứ Bảy & Chủ Nhật) -->
+        <div style="margin-top: 14px;">
+          <h4 style="font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+            Cuối tuần (Thứ Bảy & Chủ Nhật)
+          </h4>
+          <div class="weekend-container" id="weekend-grid">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Delayed Tasks Correlation Table -->
+        <div style="margin-top: 16px;">
+          <h4 style="font-size: 13.5px; font-weight: 800; color: var(--text-title); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            🔍 Đối Chiếu Công Việc Có Khả Năng Bị Chậm Do Mưa
+          </h4>
+          <div class="table-responsive">
+            <table class="table-tasks">
+              <thead>
+                <tr>
+                  <th>Mã CV</th>
+                  <th>Tên Công Việc</th>
+                  <th>Thời Lượng</th>
+                  <th>Trạng Thái</th>
+                  <th>Đánh Giá Ảnh Hưởng Do Mưa</th>
+                </tr>
+              </thead>
+              <tbody id="delayed-tasks-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Đang tải dữ liệu công việc...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Form T51 -->
+      <div class="section-card" id="form-container">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">📝 Ghi Nhật Ký Ngày</h3>
+            <span class="section-desc">Mỗi ngày 1 mục đầu ngày cho thời tiết, nhân lực, thiết bị.</span>
+          </div>
+        </div>
+
+        <!-- Message Alerts -->
+        <div class="toast-msg toast-success" id="toast-success">
+          <span>✅</span>
+          <span id="toast-success-text">Đã lưu nhật ký thành công!</span>
+        </div>
+        <div class="toast-msg toast-error" id="toast-error">
+          <span>🚫</span>
+          <span id="toast-error-text">Lỗi khi lưu dữ liệu</span>
+        </div>
+
+        <form id="diary-form" onsubmit="handleFormSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;">
+          
+          <!-- Ngày nhật ký -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Ngày nhật ký <span class="req">*</span></span>
+              <span id="form-day-name" style="color: var(--brand-blue); font-weight: 800;"></span>
+            </label>
+            <input type="date" class="form-input" id="input-diary-date" required onchange="onFormDateChange()">
+          </div>
+
+          <!-- Điều kiện thời tiết -->
+          <div class="form-group">
+            <label class="form-label"><span>Thời tiết trong ngày <span class="req">*</span></span></label>
+            <div class="weather-options">
+              <label class="weather-opt" id="opt-sunny" onclick="selectWeatherCondition('sunny')">
+                <input type="radio" name="weather_cond" value="sunny" checked>
+                <span>☀️ Nắng ráo</span>
+              </label>
+
+              <label class="weather-opt" id="opt-cloudy" onclick="selectWeatherCondition('cloudy')">
+                <input type="radio" name="weather_cond" value="cloudy">
+                <span>⛅ Nhiều mây</span>
+              </label>
+
+              <label class="weather-opt" id="opt-rain-intermittent" onclick="selectWeatherCondition('rain_intermittent')">
+                <input type="radio" name="weather_cond" value="rain_intermittent">
+                <span>🌦️ Mưa rải rác</span>
+              </label>
+
+              <label class="weather-opt" id="opt-rain-all-day" onclick="selectWeatherCondition('rain_all_day')">
+                <input type="radio" name="weather_cond" value="rain_all_day">
+                <span>🌧️ Mưa cả ngày</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Đánh dấu ngày mưa -->
+          <div class="checkbox-rain-mark">
+            <input type="checkbox" id="input-is-rain-day" onchange="onRainCheckboxChange()">
+            <label for="input-is-rain-day">
+              🌧️ Đánh dấu là NGÀY MƯA (Tạm hoãn hoặc ảnh hưởng thi công)
+            </label>
+          </div>
+
+          <!-- Diễn giải thời tiết -->
+          <div class="form-group">
+            <label class="form-label"><span>Chi tiết lượng mưa & thời tiết</span></label>
+            <input type="text" class="form-input" id="input-weather-notes" placeholder="VD: Mưa to từ 08:00 - 15:30, gió cấp 4">
+          </div>
+
+          <!-- Nhân lực & Thiết bị -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label"><span>Nhân lực (người)</span></label>
+              <input type="number" min="0" class="form-input" id="input-manpower" placeholder="0" value="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label"><span>Dự án</span></label>
+              <input type="text" class="form-input" value="Dự án Thi Công Mẫu #1" disabled style="background: #f1f5f9;">
+            </div>
+          </div>
+
+          <!-- Tình trạng máy móc / thiết bị -->
+          <div class="form-group">
+            <label class="form-label"><span>Tình trạng máy móc & thiết bị</span></label>
+            <textarea class="form-textarea" id="input-equipment-status" placeholder="VD: 1 máy xúc tạm dừng do mưa lầy; 2 máy bơm chìm hoạt động liên tục"></textarea>
+          </div>
+
+          <!-- Ghi chú nội dung công việc -->
+          <div class="form-group">
+            <label class="form-label"><span>Biện pháp thi công & Ghi chú</span></label>
+            <textarea class="form-textarea" id="input-work-notes" placeholder="VD: Tạm dừng đổ bê tông móng; chuyển công nhân sang buộc thép trong xưởng"></textarea>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-actions">
+            <button type="submit" class="btn-save" id="btn-submit-diary">
+              <span>💾 Lưu Nhật Ký Ngày</span>
+            </button>
+            <button type="button" class="btn-nav" onclick="resetFormToToday()" style="justify-content: center;">
+              🔄 Làm mới dữ liệu ngày hôm nay
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    const PROJECT_ID = 1;
+    let currentSelectedDate = new Date().toISOString().split('T')[0];
+    let currentWeekData = null;
+    let currentUser = null;
+
+    const DAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+    // Khởi tạo người dùng
+    function initUser() {
+      const userStr = localStorage.getItem('quanly_user');
+      let userName = 'Trần Mạnh Dũng';
+      let userRole = 'Chỉ huy trưởng công trình';
+
+      if (userStr) {
+        try {
+          currentUser = JSON.parse(userStr);
+          userName = currentUser.full_name || currentUser.name || userName;
+          userRole = currentUser.role_display_name || currentUser.role_name || userRole;
+        } catch (e) {}
+      }
+
+      document.getElementById('display-user-name').innerText = userName;
+      document.getElementById('display-user-role').innerText = String(userRole);
+      document.getElementById('avatar-letter').innerText = (userName.trim()[0] || 'D').toUpperCase();
+    }
+
+    // Tiện ích ngày
+    function formatDateDisplay(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return dateStr;
+    }
+
+    function getDayOfWeekName(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00Z');
+      return DAY_NAMES[d.getUTCDay()];
+    }
+
+    // Tải dữ liệu đối chiếu tuần
+    async function loadWeekData(targetDate) {
+      const dateToFetch = targetDate || currentSelectedDate;
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/projects/${PROJECT_ID}/diaries/week-comparison?date=${dateToFetch}`, { headers });
+        const data = await res.json();
+
+        if (data.success) {
+          currentWeekData = data;
+          renderWeeklyDashboard(data);
+        } else {
+          showErrorToast(data.message || 'Không thể tải dữ liệu tuần');
+        }
+      } catch (err) {
+        console.error('Lỗi tải tuần:', err);
+        showErrorToast('Lỗi kết nối máy chủ: ' + err.message);
+      }
+    }
+
+    // Render thông tin tuần & số liệu thống kê
+    function renderWeeklyDashboard(data) {
+      document.getElementById('week-target-date').value = currentSelectedDate;
+
+      // 1. Metrics
+      const weekRangeStr = `${formatDateDisplay(data.weekRange.startDate)} - ${formatDateDisplay(data.weekRange.fridayDate)}`;
+      document.getElementById('metric-week-range').innerText = weekRangeStr;
+      
+      const rainCount = data.summary.workdayRainCount;
+      document.getElementById('metric-rain-count').innerHTML = `${rainCount} <span style="font-size:16px; color:var(--text-muted);">/ 5 ngày</span>`;
+      document.getElementById('metric-rain-ratio').innerText = `Tỷ lệ mưa: ${data.summary.rainRatio}% số ngày làm việc`;
+
+      // Tính tổng nhân lực
+      let totalManpower = 0;
+      let countWorkdays = 0;
+      data.days.forEach(d => {
+        if (d.isWorkday && d.hasDiary) {
+          totalManpower += (d.manpowerCount || 0);
+          countWorkdays++;
+        }
+      });
+      const avgManpower = countWorkdays > 0 ? Math.round(totalManpower / countWorkdays) : 0;
+      document.getElementById('metric-manpower-avg').innerText = `${avgManpower} người`;
+
+      // Đánh giá nguy cơ
+      const riskEl = document.getElementById('metric-risk-badge');
+      const riskSubEl = document.getElementById('metric-risk-sub');
+      const riskCard = document.getElementById('metric-card-risk');
+      riskCard.classList.remove('danger', 'warning', 'rain');
+
+      if (data.summary.statusAlert === 'high_risk') {
+        riskEl.innerText = 'CẢNH BÁO NGUY CƠ';
+        riskEl.style.color = 'var(--danger)';
+        riskSubEl.innerText = `Mưa ${rainCount}/5 ngày làm việc`;
+        riskCard.classList.add('danger');
+      } else if (data.summary.statusAlert === 'medium_risk') {
+        riskEl.innerText = 'THEO DÕI TIẾN ĐỘ';
+        riskEl.style.color = '#d97706';
+        riskSubEl.innerText = `Có ${rainCount} ngày mưa trong tuần`;
+        riskCard.classList.add('warning');
+      } else {
+        riskEl.innerText = 'THUẬN LỢI';
+        riskEl.style.color = '#059669';
+        riskSubEl.innerText = 'Không bị gián đoạn do mưa';
+      }
+
+      // 2. Banner giải trình ảnh hưởng
+      const impactBanner = document.getElementById('impact-banner');
+      const impactIcon = document.getElementById('impact-icon');
+      const impactTitle = document.getElementById('impact-title');
+      const impactDesc = document.getElementById('impact-desc');
+
+      if (rainCount >= 3) {
+        impactBanner.style.background = '#fef2f2';
+        impactBanner.style.borderColor = '#fca5a5';
+        impactIcon.innerText = '⚠️';
+        impactTitle.innerText = `Cảnh báo: Tuần làm việc có ${rainCount}/5 ngày MƯA CẢ NGÀY`;
+        impactTitle.style.color = '#991b1b';
+        impactDesc.style.color = '#7f1d1d';
+      } else if (rainCount > 0) {
+        impactBanner.style.background = '#fefce8';
+        impactBanner.style.borderColor = '#fde047';
+        impactIcon.innerText = '🌦️';
+        impactTitle.innerText = `Ghi nhận ${rainCount} ngày MƯA CẢ NGÀY trong tuần`;
+        impactTitle.style.color = '#854d0e';
+        impactDesc.style.color = '#713f12';
+      } else {
+        impactBanner.style.background = 'var(--rain-bg)';
+        impactBanner.style.borderColor = 'var(--rain-border)';
+        impactIcon.innerText = '☀️';
+        impactTitle.innerText = 'Thời tiết tuần thuận lợi cho thi công';
+        impactTitle.style.color = '#0369a1';
+        impactDesc.style.color = '#0c4a6e';
+      }
+      impactDesc.innerText = data.summary.impactDescription;
+
+      // 3. Render 5 ngày làm việc (Thứ Hai -> Thứ Sáu)
+      const workdaysGrid = document.getElementById('workdays-grid');
+      const workdays = data.days.filter(d => d.isWorkday);
+      
+      workdaysGrid.innerHTML = workdays.map(d => {
+        const isSelected = d.date === currentSelectedDate;
+        let badgeClass = 'empty';
+        let badgeText = '⚪ Chưa ghi';
+
+        if (d.hasDiary) {
+          if (d.isRainDay || d.weatherCondition === 'rain_all_day') {
+            badgeClass = 'rain';
+            badgeText = '🌧️ MƯA CẢ NGÀY';
+          } else if (d.weatherCondition === 'rain_intermittent') {
+            badgeClass = 'rain-intermittent';
+            badgeText = '🌦️ Mưa rải rác';
+          } else if (d.weatherCondition === 'cloudy') {
+            badgeClass = 'cloudy';
+            badgeText = '⛅ Nhiều mây';
+          } else {
+            badgeClass = 'sunny';
+            badgeText = '☀️ Nắng ráo';
+          }
+        }
+
+        return `
+          <div class="day-card ${d.isRainDay ? 'rain-day' : ''} ${isSelected ? 'active-selected' : ''}" onclick="selectDayFromGrid('${d.date}')">
+            <div class="day-header">
+              <span class="day-title">${d.dayOfWeekName}</span>
+              <span class="day-date">${formatDateDisplay(d.date)}</span>
+            </div>
+            <div>
+              <span class="badge-weather ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="day-info-row" style="margin-top: 4px;">
+              <span>👷 Nhân lực:</span>
+              <strong>${d.hasDiary ? d.manpowerCount + ' ng' : '--'}</strong>
+            </div>
+            <div class="day-info-row">
+              <span style="font-size: 11px; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" title="${escapeHtml(d.equipmentStatus || '')}">
+                🚜 ${d.equipmentStatus ? escapeHtml(d.equipmentStatus) : (d.hasDiary ? 'Không có thiết bị' : '--')}
+              </span>
+            </div>
+            <button type="button" class="btn-nav" style="padding: 4px 8px; font-size: 11px; margin-top: auto; justify-content: center;">
+              ✏️ Chi tiết
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // 4. Render 2 ngày cuối tuần
+      const weekendGrid = document.getElementById('weekend-grid');
+      const weekends = data.days.filter(d => d.isWeekend);
+      weekendGrid.innerHTML = weekends.map(d => {
+        const isSelected = d.date === currentSelectedDate;
+        let badgeClass = d.isRainDay ? 'rain' : (d.hasDiary ? 'sunny' : 'empty');
+        let badgeText = d.isRainDay ? '🌧️ Mưa cả ngày' : (d.hasDiary ? '☀️ Có ghi nhật ký' : '⚪ Nghỉ cuối tuần');
+
+        return `
+          <div class="day-card ${isSelected ? 'active-selected' : ''}" onclick="selectDayFromGrid('${d.date}')" style="min-width: unset;">
+            <div class="day-header">
+              <span class="day-title">${d.dayOfWeekName}</span>
+              <span class="day-date">${formatDateDisplay(d.date)}</span>
+            </div>
+            <div>
+              <span class="badge-weather ${badgeClass}">${badgeText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 5. Render công việc đối chiếu trễ
+      const tasksTbody = document.getElementById('delayed-tasks-tbody');
+      if (data.tasksUnderReview && data.tasksUnderReview.length > 0) {
+        tasksTbody.innerHTML = data.tasksUnderReview.map(t => `
+          <tr>
+            <td><code style="font-weight:700; color:var(--brand-blue);">${escapeHtml(t.code || 'CV-' + t.id)}</code></td>
+            <td><strong>${escapeHtml(t.name)}</strong></td>
+            <td>${t.duration || 1} ngày</td>
+            <td><span class="badge-weather ${t.status === 'completed' ? 'sunny' : 'cloudy'}">${t.status}</span></td>
+            <td><span style="color: ${rainCount > 0 ? '#b91c1c' : '#059669'}; font-weight: 700;">${t.possibleDelayNote}</span></td>
+          </tr>
+        `).join('');
+      } else {
+        tasksTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Không có công việc nào cần xem xét</td></tr>';
+      }
+
+      // Nạp ngày được chọn vào Form
+      loadFormWithDate(currentSelectedDate);
+    }
+
+    // Chọn ngày từ Grid
+    function selectDayFromGrid(dateStr) {
+      currentSelectedDate = dateStr;
+      loadFormWithDate(dateStr);
+      // Cập nhật lại border active
+      document.querySelectorAll('.day-card').forEach(card => card.classList.remove('active-selected'));
+      renderWeeklyDashboard(currentWeekData);
+    }
+
+    // Nạp dữ liệu ngày vào Form
+    function loadFormWithDate(dateStr) {
+      document.getElementById('input-diary-date').value = dateStr;
+      document.getElementById('form-day-name').innerText = `(${getDayOfWeekName(dateStr)})`;
+
+      const dayObj = currentWeekData ? currentWeekData.days.find(d => d.date === dateStr) : null;
+      if (dayObj && dayObj.hasDiary) {
+        // Nạp dữ liệu hiện có
+        selectWeatherCondition(dayObj.weatherCondition || 'sunny');
+        document.getElementById('input-is-rain-day').checked = Boolean(dayObj.isRainDay);
+        document.getElementById('input-weather-notes').value = dayObj.weatherNotes || '';
+        document.getElementById('input-manpower').value = dayObj.manpowerCount !== undefined ? dayObj.manpowerCount : 0;
+        document.getElementById('input-equipment-status').value = dayObj.equipmentStatus || '';
+        document.getElementById('input-work-notes').value = dayObj.workNotes || '';
+      } else {
+        // Reset về mặc định
+        selectWeatherCondition('sunny');
+        document.getElementById('input-is-rain-day').checked = false;
+        document.getElementById('input-weather-notes').value = '';
+        document.getElementById('input-manpower').value = 0;
+        document.getElementById('input-equipment-status').value = '';
+        document.getElementById('input-work-notes').value = '';
+      }
+    }
+
+    // Chọn radio thời tiết
+    function selectWeatherCondition(cond) {
+      ['sunny', 'cloudy', 'rain_intermittent', 'rain_all_day'].forEach(c => {
+        const el = document.getElementById('opt-' + c.replace('_', '-'));
+        const radio = el ? el.querySelector('input') : null;
+        if (el) el.classList.remove('selected');
+        if (radio) radio.checked = false;
+      });
+
+      const selectedEl = document.getElementById('opt-' + cond.replace('_', '-'));
+      if (selectedEl) {
+        selectedEl.classList.add('selected');
+        const radio = selectedEl.querySelector('input');
+        if (radio) radio.checked = true;
+      }
+
+      // Tự động bật checkbox ngày mưa nếu chọn mưa cả ngày
+      const rainCheckbox = document.getElementById('input-is-rain-day');
+      if (cond === 'rain_all_day') {
+        rainCheckbox.checked = true;
+      }
+    }
+
+    function onRainCheckboxChange() {
+      const isChecked = document.getElementById('input-is-rain-day').checked;
+      if (isChecked) {
+        const currentSelected = document.querySelector('input[name="weather_cond"]:checked')?.value;
+        if (currentSelected === 'sunny' || currentSelected === 'cloudy') {
+          selectWeatherCondition('rain_all_day');
+        }
+      }
+    }
+
+    function onFormDateChange() {
+      const newDate = document.getElementById('input-diary-date').value;
+      if (newDate) {
+        currentSelectedDate = newDate;
+        loadWeekData(newDate);
+      }
+    }
+
+    function onDatePickerChange() {
+      const newDate = document.getElementById('week-target-date').value;
+      if (newDate) {
+        currentSelectedDate = newDate;
+        loadWeekData(newDate);
+      }
+    }
+
+    function selectToday() {
+      currentSelectedDate = new Date().toISOString().split('T')[0];
+      loadWeekData(currentSelectedDate);
+    }
+
+    function navigateWeek(daysOffset) {
+      const d = new Date(currentSelectedDate + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + daysOffset);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      currentSelectedDate = `${y}-${m}-${day}`;
+      loadWeekData(currentSelectedDate);
+    }
+
+    function resetFormToToday() {
+      selectToday();
+    }
+
+    // Submit lưu Form (Chống bấm nhiều lần liên tiếp)
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit-diary');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Đang lưu dữ liệu...</span>';
+
+      hideToasts();
+
+      const diaryDate = document.getElementById('input-diary-date').value;
+      const weatherCond = document.querySelector('input[name="weather_cond"]:checked')?.value || 'sunny';
+      const isRain = document.getElementById('input-is-rain-day').checked;
+      const weatherNotes = document.getElementById('input-weather-notes').value.trim();
+      const manpower = parseInt(document.getElementById('input-manpower').value, 10) || 0;
+      const equipStatus = document.getElementById('input-equipment-status').value.trim();
+      const workNotes = document.getElementById('input-work-notes').value.trim();
+
+      if (!diaryDate) {
+        showErrorToast('Vui lòng chọn ngày nhật ký');
+        btn.disabled = false;
+        btn.innerHTML = '<span>💾 Lưu Nhật Ký Ngày</span>';
+        return;
+      }
+
+      const payload = {
+        diary_date: diaryDate,
+        weather_condition: weatherCond,
+        is_rain_day: isRain,
+        weather_notes: weatherNotes,
+        manpower_count: manpower,
+        equipment_status: equipStatus,
+        work_notes: workNotes
+      };
+
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/projects/${PROJECT_ID}/diaries`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showSuccessToast(`Đã lưu nhật ký ngày ${formatDateDisplay(diaryDate)} thành công! ${isRain ? '🌧️ (Đã đánh dấu ngày mưa)' : ''}`);
+          // Tải lại dữ liệu tuần để đồng bộ Grid và Metrics
+          await loadWeekData(diaryDate);
+        } else {
+          showErrorToast(data.message || 'Lưu nhật ký thất bại. Dữ liệu trên form được giữ nguyên.');
+        }
+      } catch (err) {
+        showErrorToast('Lỗi kết nối đến máy chủ: ' + err.message + '. Dữ liệu không bị xóa.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>💾 Lưu Nhật Ký Ngày</span>';
+      }
+    }
+
+    // ========================================================
+    // TÍNH NĂNG KIỂM THỬ ACCEPTANCE CRITERIA (AC):
+    // Nhập mưa cả ngày từ Thứ Hai đến Thứ Sáu
+    // ========================================================
+    async function fillMondayToFridayRainPreset() {
+      if (!currentWeekData || !currentWeekData.days) return;
+
+      const workdays = currentWeekData.days.filter(d => d.isWorkday);
+      if (workdays.length !== 5) {
+        alert('Không tìm thấy đủ 5 ngày làm việc trong tuần hiện tại.');
+        return;
+      }
+
+      const confirmed = confirm(
+        `Thực hiện kiểm thử Acceptance Criteria (AC):\n` +
+        `Hệ thống sẽ lưu dữ liệu 'Mưa cả ngày' cho 5 ngày làm việc:\n` +
+        `• Thứ Hai (${workdays[0].date})\n` +
+        `• Thứ Ba (${workdays[1].date})\n` +
+        `• Thứ Tư (${workdays[2].date})\n` +
+        `• Thứ Năm (${workdays[3].date})\n` +
+        `• Thứ Sáu (${workdays[4].date})\n\n` +
+        `Bạn có muốn tiếp tục ghi nhận không?`
+      );
+      if (!confirmed) return;
+
+      const token = localStorage.getItem('quanly_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      let successCount = 0;
+      for (const day of workdays) {
+        const payload = {
+          diary_date: day.date,
+          weather_condition: 'rain_all_day',
+          is_rain_day: true,
+          weather_notes: `Mưa to cả ngày ${day.dayOfWeekName}, ngập nước hiện trường`,
+          manpower_count: 10 + Math.floor(Math.random() * 5),
+          equipment_status: 'Máy đào và lu tạm dừng, 2 máy bơm nước hố móng hoạt động',
+          work_notes: 'Tạm dừng thi công ngoài trời do mưa cả ngày. Đối chiếu chậm tiến độ.'
+        };
+
+        try {
+          const res = await fetch(`/api/projects/${PROJECT_ID}/diaries`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json();
+          if (json.success) successCount++;
+        } catch (e) {
+          console.error('Lỗi lưu ngày:', day.date, e);
+        }
+      }
+
+      await loadWeekData(workdays[0].date);
+      showSuccessToast(`✅ Đã hoàn thành kịch bản AC: Đã lưu ${successCount}/5 ngày MƯA CẢ NGÀY từ Thứ Hai đến Thứ Sáu!`);
+    }
+
+    function showSuccessToast(msg) {
+      const el = document.getElementById('toast-success');
+      document.getElementById('toast-success-text').innerText = msg;
+      el.style.display = 'flex';
+      setTimeout(() => { el.style.display = 'none'; }, 6000);
+    }
+
+    function showErrorToast(msg) {
+      const el = document.getElementById('toast-error');
+      document.getElementById('toast-error-text').innerText = msg;
+      el.style.display = 'flex';
+    }
+
+    function hideToasts() {
+      document.getElementById('toast-success').style.display = 'none';
+      document.getElementById('toast-error').style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Khởi chạy khi tải trang
+    window.addEventListener('DOMContentLoaded', () => {
+      initUser();
+      selectToday();
+    });
+  </script>
+</body>
+</html>

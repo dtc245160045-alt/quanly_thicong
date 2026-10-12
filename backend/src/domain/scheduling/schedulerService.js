@@ -74,14 +74,21 @@ class SchedulerService {
       const idNorm = normalizeId(item.taskId, 'taskId');
       const source = sourceById.get(idNorm);
       const normTask = taskById.get(idNorm);
-      return {
+      const taskObj = {
         ...item,
         name: source?.name,
         code: source?.code,
-        status: source?.status,
-        work_item_id: source?.work_item_id ?? source?.workItemId,
-        predecessors: normTask?.predecessors || source?.predecessors || []
+        status: source?.status
       };
+      const wId = source?.work_item_id ?? source?.workItemId;
+      if (wId !== undefined) {
+        taskObj.work_item_id = wId;
+      }
+      const preds = normTask?.predecessors || source?.predecessors;
+      if (preds && preds.length > 0) {
+        taskObj.predecessors = preds;
+      }
+      return taskObj;
     });
     const projectDuration = Math.max(...scheduledTasks.map(task => task.earlyFinish));
 
