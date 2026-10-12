@@ -78,7 +78,8 @@ function canUserAccessProject(user, projectId) {
   if (user.role_name === 'project_manager' || user.role_id === 2) return true;
   // Viewer chỉ xem dự án được gán quyền
   const pId = Number(projectId);
-  const assigned = userProjectAssignments.get(user.id);
+  const uId = user.id || user.userId;
+  const assigned = userProjectAssignments.get(uId);
   if (assigned) {
     if (assigned.has('*') || assigned.has(pId)) return true;
   }
@@ -117,6 +118,7 @@ function createSession(user) {
   const { generateSessionToken } = require('../utils/security');
   const token = generateSessionToken();
   const sessionData = {
+    id: user.id,
     userId: user.id,
     email: user.email,
     full_name: user.full_name,
@@ -405,6 +407,80 @@ function lockSiteDiary(projectId, date, userId) {
   return diary;
 }
 
+let inMemorySiteDiaryPhotos = [];
+let inMemorySiteDiaryItems = [];
+
+function getSiteDiaryPhotos(diaryId) {
+  const dId = Number(diaryId);
+  return inMemorySiteDiaryPhotos.filter(p => Number(p.diary_id) === dId);
+}
+
+function saveSiteDiaryPhoto({
+  diary_id,
+  file_name,
+  file_path,
+  file_size,
+  mime_type,
+  caption = ''
+}) {
+  const dId = Number(diary_id);
+  const newId = inMemorySiteDiaryPhotos.length > 0 ? Math.max(...inMemorySiteDiaryPhotos.map(p => p.id)) + 1 : 1;
+  const newPhoto = {
+    id: newId,
+    diary_id: dId,
+    file_name: String(file_name).trim(),
+    file_path: String(file_path).trim(),
+    file_size: Number(file_size || 0),
+    mime_type: String(mime_type || 'image/jpeg'),
+    caption: caption ? String(caption).trim() : null,
+    created_at: new Date().toISOString()
+  };
+  inMemorySiteDiaryPhotos.push(newPhoto);
+  return newPhoto;
+}
+
+function deleteSiteDiaryPhoto(photoId) {
+  const pId = Number(photoId);
+  const idx = inMemorySiteDiaryPhotos.findIndex(p => p.id === pId);
+  if (idx !== -1) {
+    inMemorySiteDiaryPhotos.splice(idx, 1);
+    return true;
+  }
+  return false;
+}
+
+function getSiteDiaryItems(diaryId) {
+  const dId = Number(diaryId);
+  return inMemorySiteDiaryItems.filter(i => Number(i.diary_id) === dId);
+}
+
+function saveSiteDiaryItem({
+  diary_id,
+  work_item_id = null,
+  work_content,
+  quantity_done = 0,
+  unit = ''
+}) {
+  const dId = Number(diary_id);
+  const newId = inMemorySiteDiaryItems.length > 0 ? Math.max(...inMemorySiteDiaryItems.map(i => i.id)) + 1 : 1;
+  const newItem = {
+    id: newId,
+    diary_id: dId,
+    work_item_id: work_item_id ? Number(work_item_id) : null,
+    work_content: String(work_content || '').trim(),
+    quantity_done: Number(quantity_done || 0),
+    unit: String(unit || '').trim(),
+    created_at: new Date().toISOString()
+  };
+  inMemorySiteDiaryItems.push(newItem);
+  return newItem;
+}
+
+function clearSiteDiaryItems(diaryId) {
+  const dId = Number(diaryId);
+  inMemorySiteDiaryItems = inMemorySiteDiaryItems.filter(i => Number(i.diary_id) !== dId);
+}
+
 // ==========================================
 // DỰ ÁN, CÔNG VIỆC VÀ PHỤ THUỘC IN-MEMORY (FAST STANDALONE)
 // ==========================================
@@ -524,6 +600,14 @@ module.exports = {
   getSiteDiaryByDate,
   saveSiteDiaryEntry,
   lockSiteDiary,
+  inMemorySiteDiaryPhotos,
+  getSiteDiaryPhotos,
+  saveSiteDiaryPhoto,
+  deleteSiteDiaryPhoto,
+  inMemorySiteDiaryItems,
+  getSiteDiaryItems,
+  saveSiteDiaryItem,
+  clearSiteDiaryItems,
   getTasks,
   createTaskData,
   updateTaskData,

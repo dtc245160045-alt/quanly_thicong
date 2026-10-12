@@ -86,8 +86,10 @@ module.exports = (db) => {
     }
   });
 
-  // 4. Lưu / Cập nhật nhật ký ngày (Form T51 - hỗ trợ đánh dấu ngày mưa, thiết bị, nhân lực)
-  router.post('/projects/:projectId/diaries', async (req, res) => {
+const { handleMultipartUpload } = require('../middlewares/multipartUpload');
+
+  // 4. Lưu / Cập nhật nhật ký ngày (Form T51 & T52 - hỗ trợ gửi công việc và ảnh đính kèm)
+  router.post('/projects/:projectId/diaries', handleMultipartUpload, async (req, res) => {
     const projectId = Number(req.params.projectId || req.body.project_id);
     if (!Number.isInteger(projectId) || projectId <= 0) {
       return res.status(400).json({ success: false, message: 'projectId không hợp lệ' });
@@ -98,10 +100,11 @@ module.exports = (db) => {
 
     try {
       const userId = req.user?.userId || req.user?.id || 1;
-      const saved = await diaryService.saveDiary(projectId, req.body, userId);
+      const files = req.files || [];
+      const saved = await diaryService.saveDiary(projectId, req.body, userId, files);
       res.status(200).json({
         success: true,
-        message: 'Lưu thông tin nhật ký ngày thành công',
+        message: 'Lưu thông tin nhật ký thi công và ảnh đính kèm thành công',
         data: saved
       });
     } catch (err) {
@@ -109,6 +112,61 @@ module.exports = (db) => {
       res.status(statusCode).json({
         success: false,
         message: err.message || 'Không thể lưu nhật ký công trường'
+      });
+    }
+  });
+
+  // 5. Đính kèm thêm ảnh vào nhật ký ngày đã có (T52)
+  router.post('/projects/:projectId/diaries/:date/photos', handleMultipartUpload, async (req, res) => {
+    const projectId = Number(req.params.projectId);
+    const dateStr = req.params.date;
+
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({ success: false, message: 'projectId không hợp lệ' });
+    }
+
+    if (checkViewerForbidden(req, res)) return;
+
+    try {
+      const userId = req.user?.userId || req.user?.id || 1;
+      const files = req.files || [];
+      const updated = await diaryService.addPhotos(projectId, dateStr, files, userId);
+      res.status(200).json({
+        success: true,
+        message: 'Tải ảnh đính kèm lên nhật ký thành công',
+        data: updated
+      });
+    } catch (err) {
+      const statusCode = err.status || 500;
+      res.status(statusCode).json({
+        success: false,
+        message: err.message || 'Không thể tải ảnh đính kèm lên'
+      });
+    }
+  });
+
+  // 6. Xóa ảnh đính kèm khỏi nhật ký (T52)
+  router.delete('/projects/:projectId/diaries/photos/:photoId', async (req, res) => {
+    const projectId = Number(req.params.projectId);
+    const photoId = Number(req.params.photoId);
+
+    if (!Number.isInteger(projectId) || projectId <= 0 || !Number.isInteger(photoId) || photoId <= 0) {
+      return res.status(400).json({ success: false, message: 'projectId hoặc photoId không hợp lệ' });
+    }
+
+    if (checkViewerForbidden(req, res)) return;
+
+    try {
+      await diaryService.deletePhoto(projectId, photoId);
+      res.json({
+        success: true,
+        message: 'Đã xóa ảnh đính kèm thành công'
+      });
+    } catch (err) {
+      const statusCode = err.status || 500;
+      res.status(statusCode).json({
+        success: false,
+        message: err.message || 'Không thể xóa ảnh đính kèm'
       });
     }
   });

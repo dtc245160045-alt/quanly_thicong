@@ -275,6 +275,65 @@
     .toast-success { background: var(--emerald-bg); border: 1.5px solid var(--emerald-border); color: var(--emerald-text); }
     .toast-error { background: var(--danger-bg); border: 1.5px solid var(--danger-border); color: var(--danger-text); }
 
+    /* Photo Upload Dropzone & Previews (T52) */
+    .photo-dropzone {
+      border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px 12px;
+      background: #f8fafc; text-align: center; cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .photo-dropzone:hover, .photo-dropzone.dragover {
+      border-color: var(--brand-blue); background: #eff6ff;
+    }
+    .photo-preview-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px;
+      margin-top: 10px;
+    }
+    .photo-card {
+      border: 1px solid var(--border-card); border-radius: 8px; overflow: hidden;
+      background: #ffffff; display: flex; flex-direction: column; position: relative;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .photo-thumb-wrap {
+      width: 100%; height: 75px; position: relative; overflow: hidden; background: #f1f5f9;
+    }
+    .photo-thumb-wrap img {
+      width: 100%; height: 100%; object-fit: cover; cursor: pointer;
+    }
+    .photo-remove-btn {
+      position: absolute; top: 4px; right: 4px; background: rgba(220, 38, 38, 0.9);
+      color: #ffffff; border: none; width: 22px; height: 22px; border-radius: 50%;
+      font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background 0.15s; line-height: 1;
+    }
+    .photo-remove-btn:hover { background: #dc2626; transform: scale(1.05); }
+    .photo-meta-info {
+      padding: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 10.5px;
+    }
+    .photo-file-size { color: var(--text-muted); font-size: 10px; }
+    .photo-caption-input {
+      width: 100%; padding: 4px 6px; font-size: 11px; border: 1.5px solid var(--border-card);
+      border-radius: 4px; outline: none; transition: border-color 0.15s;
+    }
+    .photo-caption-input:focus { border-color: var(--brand-blue); }
+
+    /* Modal xem ảnh lớn */
+    .photo-lightbox {
+      display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85);
+      z-index: 999; align-items: center; justify-content: center; padding: 20px;
+    }
+    .photo-lightbox.active { display: flex; }
+    .photo-lightbox-content {
+      max-width: 90vw; max-height: 90vh; background: #ffffff; border-radius: 12px;
+      overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+    }
+    .photo-lightbox-img {
+      max-width: 100%; max-height: 75vh; object-fit: contain; background: #0f172a;
+    }
+    .photo-lightbox-footer {
+      padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
+      background: #ffffff;
+    }
+
     /* Table of Delayed Tasks correlation */
     .table-responsive {
       width: 100%; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 8px;
@@ -542,10 +601,71 @@
             <textarea class="form-textarea" id="input-work-notes" placeholder="VD: Tạm dừng đổ bê tông móng; chuyển công nhân sang buộc thép trong xưởng"></textarea>
           </div>
 
+          <!-- Công việc / Hạng mục thi công liên kết (T52) -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Công việc / Hạng mục thi công</span>
+              <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(Liên kết tiến độ)</span>
+            </label>
+            <select class="form-select" id="select-work-item" onchange="onWorkItemSelectChange()">
+              <option value="">-- Chọn công việc trong dự án (Tùy chọn) --</option>
+            </select>
+          </div>
+          <div id="work-item-details-row" style="display: none; grid-template-columns: 2fr 1fr 1fr; gap: 8px;">
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12px;"><span>Nội dung chi tiết</span></label>
+              <input type="text" class="form-input" id="input-item-content" placeholder="Mô tả công việc thực hiện">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12px;"><span>Khối lượng</span></label>
+              <input type="number" min="0" step="any" class="form-input" id="input-item-quantity" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12px;"><span>Đơn vị</span></label>
+              <input type="text" class="form-input" id="input-item-unit" placeholder="m³, m², tấn...">
+            </div>
+          </div>
+
+          <!-- Ảnh hiện trường đính kèm (T52) -->
+          <div class="form-group" style="margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;">
+                <span>📸 Ảnh đính kèm hiện trường</span>
+              </label>
+              <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);" id="photo-count-indicator">
+                Tối đa 10 ảnh (≤ 5MB/ảnh)
+              </span>
+            </div>
+
+            <!-- Dropzone & File Input -->
+            <div class="photo-dropzone" id="photo-dropzone">
+              <div style="font-size: 26px; margin-bottom: 4px;">📷</div>
+              <div style="font-size: 13px; font-weight: 700; color: var(--brand-blue);">
+                Bấm để chọn ảnh hoặc kéo thả vào đây
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Định dạng: JPG, PNG, WEBP, GIF (Dung lượng tối đa 5MB/ảnh)
+              </div>
+              <input type="file" id="input-diary-photos" multiple accept="image/png, image/jpeg, image/webp, image/gif" style="display: none;">
+            </div>
+
+            <!-- Danh sách ảnh chờ tải lên (Preview) -->
+            <div id="photo-preview-container" class="photo-preview-grid" style="display: none;"></div>
+
+            <!-- Danh sách ảnh đã lưu trên server cho ngày này -->
+            <div id="existing-photos-container" style="display: none; margin-top: 10px;">
+              <div style="font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                <span>Ảnh đã đính kèm trên hệ thống:</span>
+                <span id="existing-photos-count" style="color: var(--brand-blue);">0 ảnh</span>
+              </div>
+              <div id="existing-photos-grid" class="photo-preview-grid"></div>
+            </div>
+          </div>
+
           <!-- Action Buttons -->
           <div class="form-actions">
             <button type="submit" class="btn-save" id="btn-submit-diary">
-              <span>💾 Lưu Nhật Ký Ngày</span>
+              <span>💾 Lưu Nhật Ký & Tải Ảnh</span>
             </button>
             <button type="button" class="btn-nav" onclick="resetFormToToday()" style="justify-content: center;">
               🔄 Làm mới dữ liệu ngày hôm nay
@@ -559,13 +679,33 @@
 
   </main>
 
+  <!-- Modal Xem Chi Tiết Ảnh Lớn (Lightbox) -->
+  <div class="photo-lightbox" id="photo-lightbox" onclick="closeLightbox(event)">
+    <div class="photo-lightbox-content" onclick="event.stopPropagation()">
+      <img id="lightbox-img" src="" alt="Ảnh chi tiết nhật ký" class="photo-lightbox-img">
+      <div class="photo-lightbox-footer">
+        <div>
+          <div id="lightbox-caption" style="font-size: 13.5px; font-weight: 700; color: var(--text-title);"></div>
+          <div id="lightbox-meta" style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"></div>
+        </div>
+        <button type="button" class="btn-nav" onclick="closeLightbox()">Đóng ✕</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const PROJECT_ID = 1;
     let currentSelectedDate = new Date().toISOString().split('T')[0];
     let currentWeekData = null;
     let currentUser = null;
+    let projectTasks = [];
+    let selectedPhotos = []; // { id, file, caption, previewUrl }
+    let existingPhotos = []; // { id, file_name, url, file_size, caption, created_at }
 
     const DAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_PHOTOS = 10;
 
     // Khởi tạo người dùng
     function initUser() {
@@ -594,9 +734,56 @@
       return dateStr;
     }
 
+    function formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
     function getDayOfWeekName(dateStr) {
       const d = new Date(dateStr + 'T00:00:00Z');
       return DAY_NAMES[d.getUTCDay()];
+    }
+
+    // Tải danh sách công việc của dự án để chọn vào nhật ký (T52)
+    async function loadProjectTasks() {
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/projects/${PROJECT_ID}/tasks`, { headers });
+        if (!res.ok) return;
+        const json = await res.json();
+        const tasks = Array.isArray(json) ? json : (json.data || json.tasks || []);
+        projectTasks = tasks;
+
+        const selectEl = document.getElementById('select-work-item');
+        if (!selectEl) return;
+        selectEl.innerHTML = '<option value="">-- Chọn công việc trong dự án (Tùy chọn) --</option>' +
+          tasks.map(t => `<option value="${t.id}">[${escapeHtml(t.code || 'CV-' + t.id)}] ${escapeHtml(t.name)}</option>`).join('');
+      } catch (e) {
+        console.warn('Không thể nạp danh sách công việc:', e);
+      }
+    }
+
+    function onWorkItemSelectChange() {
+      const selectEl = document.getElementById('select-work-item');
+      const val = selectEl.value;
+      const detailsRow = document.getElementById('work-item-details-row');
+      const contentInput = document.getElementById('input-item-content');
+
+      if (val) {
+        detailsRow.style.display = 'grid';
+        const task = projectTasks.find(t => String(t.id) === String(val));
+        if (task && !contentInput.value.trim()) {
+          contentInput.value = task.name || '';
+        }
+      } else {
+        detailsRow.style.display = 'none';
+      }
     }
 
     // Tải dữ liệu đối chiếu tuần
@@ -723,6 +910,10 @@
           }
         }
 
+        const photosBadge = (d.photosCount && d.photosCount > 0)
+          ? `<div style="margin-top: 3px;"><span style="font-size:10.5px; background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bfdbfe; display:inline-flex; align-items:center; gap:3px;">📷 ${d.photosCount} ảnh</span></div>`
+          : '';
+
         return `
           <div class="day-card ${d.isRainDay ? 'rain-day' : ''} ${isSelected ? 'active-selected' : ''}" onclick="selectDayFromGrid('${d.date}')">
             <div class="day-header">
@@ -732,6 +923,7 @@
             <div>
               <span class="badge-weather ${badgeClass}">${badgeText}</span>
             </div>
+            ${photosBadge}
             <div class="day-info-row" style="margin-top: 4px;">
               <span>👷 Nhân lực:</span>
               <strong>${d.hasDiary ? d.manpowerCount + ' ng' : '--'}</strong>
@@ -755,6 +947,9 @@
         const isSelected = d.date === currentSelectedDate;
         let badgeClass = d.isRainDay ? 'rain' : (d.hasDiary ? 'sunny' : 'empty');
         let badgeText = d.isRainDay ? '🌧️ Mưa cả ngày' : (d.hasDiary ? '☀️ Có ghi nhật ký' : '⚪ Nghỉ cuối tuần');
+        const photosBadge = (d.photosCount && d.photosCount > 0)
+          ? `<div style="margin-top: 3px;"><span style="font-size:10.5px; background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bfdbfe;">📷 ${d.photosCount} ảnh</span></div>`
+          : '';
 
         return `
           <div class="day-card ${isSelected ? 'active-selected' : ''}" onclick="selectDayFromGrid('${d.date}')" style="min-width: unset;">
@@ -765,6 +960,7 @@
             <div>
               <span class="badge-weather ${badgeClass}">${badgeText}</span>
             </div>
+            ${photosBadge}
           </div>
         `;
       }).join('');
@@ -798,29 +994,296 @@
       renderWeeklyDashboard(currentWeekData);
     }
 
-    // Nạp dữ liệu ngày vào Form
-    function loadFormWithDate(dateStr) {
+    // Nạp dữ liệu ngày vào Form và lấy ảnh đã lưu (T52)
+    async function loadFormWithDate(dateStr) {
       document.getElementById('input-diary-date').value = dateStr;
       document.getElementById('form-day-name').innerText = `(${getDayOfWeekName(dateStr)})`;
 
+      // Reset danh sách ảnh chờ tải lên
+      clearSelectedPhotos();
+
+      // Mặc định ban đầu
+      selectWeatherCondition('sunny');
+      document.getElementById('input-is-rain-day').checked = false;
+      document.getElementById('input-weather-notes').value = '';
+      document.getElementById('input-manpower').value = 0;
+      document.getElementById('input-equipment-status').value = '';
+      document.getElementById('input-work-notes').value = '';
+      document.getElementById('select-work-item').value = '';
+      document.getElementById('work-item-details-row').style.display = 'none';
+      document.getElementById('input-item-content').value = '';
+      document.getElementById('input-item-quantity').value = '';
+      document.getElementById('input-item-unit').value = '';
+
+      // Tải chi tiết nhật ký từ backend để lấy ảnh và items chính xác
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/projects/${PROJECT_ID}/diaries/${dateStr}`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          const diary = json.data;
+          if (diary) {
+            selectWeatherCondition(diary.weather_condition || 'sunny');
+            document.getElementById('input-is-rain-day').checked = Boolean(diary.is_rain_day);
+            document.getElementById('input-weather-notes').value = diary.weather_notes || '';
+            document.getElementById('input-manpower').value = diary.manpower_count !== undefined ? diary.manpower_count : 0;
+            document.getElementById('input-equipment-status').value = diary.equipment_status || '';
+            document.getElementById('input-work-notes').value = diary.work_notes || '';
+
+            // Nạp items nếu có
+            if (Array.isArray(diary.items) && diary.items.length > 0) {
+              const firstItem = diary.items[0];
+              if (firstItem.work_item_id) {
+                document.getElementById('select-work-item').value = String(firstItem.work_item_id);
+                document.getElementById('work-item-details-row').style.display = 'grid';
+                document.getElementById('input-item-content').value = firstItem.work_content || '';
+                document.getElementById('input-item-quantity').value = firstItem.quantity_done || '';
+                document.getElementById('input-item-unit').value = firstItem.unit || '';
+              }
+            }
+
+            // Nạp ảnh đã lưu trên server (T52)
+            existingPhotos = Array.isArray(diary.photos) ? diary.photos : [];
+            renderExistingPhotos();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Lỗi lấy chi tiết nhật ký:', e);
+      }
+
+      // Nếu không có trên server, dùng dữ liệu tuần hiện có nếu có
       const dayObj = currentWeekData ? currentWeekData.days.find(d => d.date === dateStr) : null;
       if (dayObj && dayObj.hasDiary) {
-        // Nạp dữ liệu hiện có
         selectWeatherCondition(dayObj.weatherCondition || 'sunny');
         document.getElementById('input-is-rain-day').checked = Boolean(dayObj.isRainDay);
         document.getElementById('input-weather-notes').value = dayObj.weatherNotes || '';
         document.getElementById('input-manpower').value = dayObj.manpowerCount !== undefined ? dayObj.manpowerCount : 0;
         document.getElementById('input-equipment-status').value = dayObj.equipmentStatus || '';
         document.getElementById('input-work-notes').value = dayObj.workNotes || '';
-      } else {
-        // Reset về mặc định
-        selectWeatherCondition('sunny');
-        document.getElementById('input-is-rain-day').checked = false;
-        document.getElementById('input-weather-notes').value = '';
-        document.getElementById('input-manpower').value = 0;
-        document.getElementById('input-equipment-status').value = '';
-        document.getElementById('input-work-notes').value = '';
       }
+
+      existingPhotos = [];
+      renderExistingPhotos();
+    }
+
+    // ========================================================
+    // QUẢN LÝ ẢNH ĐÍNH KÈM (T52)
+    // ========================================================
+
+    function initPhotoDropzone() {
+      const dropzone = document.getElementById('photo-dropzone');
+      const fileInput = document.getElementById('input-diary-photos');
+      if (!dropzone || !fileInput) return;
+
+      dropzone.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        handlePhotoFilesSelected(e.target.files);
+        fileInput.value = ''; // Cho phép chọn lại cùng file nếu muốn
+      });
+
+      // Kéo thả file
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        });
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files.length > 0) {
+          handlePhotoFilesSelected(dt.files);
+        }
+      });
+    }
+
+    function handlePhotoFilesSelected(fileList) {
+      if (!fileList || fileList.length === 0) return;
+      hideToasts();
+
+      const newFiles = Array.from(fileList);
+      const currentTotal = selectedPhotos.length + existingPhotos.length;
+
+      if (currentTotal + newFiles.length > MAX_PHOTOS) {
+        showErrorToast(`Vượt quá giới hạn: Mỗi nhật ký ngày chỉ cho phép tối đa ${MAX_PHOTOS} ảnh đính kèm (Hiện có: ${currentTotal} ảnh).`);
+        return;
+      }
+
+      for (const file of newFiles) {
+        // 1. Kiểm tra MIME Type
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+          showErrorToast(`Tập tin "${file.name}" không hợp lệ. Chỉ chấp nhận các định dạng ảnh: JPG, PNG, WEBP, GIF.`);
+          return;
+        }
+
+        // 2. Kiểm tra Dung lượng (Max 5MB)
+        if (file.size > MAX_FILE_SIZE) {
+          showErrorToast(`Tập tin "${file.name}" (${formatFileSize(file.size)}) vượt quá giới hạn 5MB cho phép.`);
+          return;
+        }
+
+        // Tạo preview URL
+        const previewUrl = URL.createObjectURL(file);
+        selectedPhotos.push({
+          id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          file,
+          caption: '',
+          previewUrl
+        });
+      }
+
+      renderSelectedPhotos();
+    }
+
+    function renderSelectedPhotos() {
+      const container = document.getElementById('photo-preview-container');
+      const indicator = document.getElementById('photo-count-indicator');
+      const totalCount = selectedPhotos.length + existingPhotos.length;
+
+      if (indicator) {
+        indicator.innerText = `${totalCount}/${MAX_PHOTOS} ảnh (≤ 5MB/ảnh)`;
+        indicator.style.color = totalCount >= MAX_PHOTOS ? 'var(--danger)' : 'var(--text-muted)';
+      }
+
+      if (selectedPhotos.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+
+      container.style.display = 'grid';
+      container.innerHTML = selectedPhotos.map((p, idx) => `
+        <div class="photo-card" id="card-${p.id}">
+          <div class="photo-thumb-wrap">
+            <img src="${p.previewUrl}" alt="Ảnh chờ tải lên" onclick="openLightbox('${p.previewUrl}', '${escapeHtml(p.caption || p.file.name)}', 'Chờ tải lên • ${formatFileSize(p.file.size)}')">
+            <button type="button" class="photo-remove-btn" onclick="removeSelectedPhoto(${idx})" title="Xóa ảnh này">✕</button>
+          </div>
+          <div class="photo-meta-info">
+            <span class="photo-file-size">${formatFileSize(p.file.size)}</span>
+            <input type="text" class="photo-caption-input" placeholder="Chú thích ảnh..." value="${escapeHtml(p.caption)}" onchange="updatePhotoCaption(${idx}, this.value)">
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updatePhotoCaption(idx, captionVal) {
+      if (selectedPhotos[idx]) {
+        selectedPhotos[idx].caption = captionVal.trim();
+      }
+    }
+
+    function removeSelectedPhoto(idx) {
+      if (selectedPhotos[idx]) {
+        try {
+          URL.revokeObjectURL(selectedPhotos[idx].previewUrl);
+        } catch (e) {}
+        selectedPhotos.splice(idx, 1);
+        renderSelectedPhotos();
+      }
+    }
+
+    function clearSelectedPhotos() {
+      selectedPhotos.forEach(p => {
+        try { URL.revokeObjectURL(p.previewUrl); } catch (e) {}
+      });
+      selectedPhotos = [];
+      renderSelectedPhotos();
+    }
+
+    function renderExistingPhotos() {
+      const container = document.getElementById('existing-photos-container');
+      const grid = document.getElementById('existing-photos-grid');
+      const countEl = document.getElementById('existing-photos-count');
+
+      if (!existingPhotos || existingPhotos.length === 0) {
+        container.style.display = 'none';
+        grid.innerHTML = '';
+        return;
+      }
+
+      container.style.display = 'block';
+      countEl.innerText = `${existingPhotos.length} ảnh`;
+
+      grid.innerHTML = existingPhotos.map(p => `
+        <div class="photo-card" id="existing-photo-${p.id}">
+          <div class="photo-thumb-wrap">
+            <img src="${p.url || '/uploads/diaries/' + p.file_name}" alt="${escapeHtml(p.caption || p.file_name)}" onclick="openLightbox('${p.url || '/uploads/diaries/' + p.file_name}', '${escapeHtml(p.caption || p.file_name)}', 'Đã lưu • ${formatFileSize(p.file_size)}')">
+            <button type="button" class="photo-remove-btn" onclick="deleteExistingPhoto(${p.id})" title="Xóa ảnh trên server">✕</button>
+          </div>
+          <div class="photo-meta-info">
+            <span style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(p.caption || p.file_name)}">
+              ${escapeHtml(p.caption || p.file_name)}
+            </span>
+            <span class="photo-file-size">${formatFileSize(p.file_size)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function deleteExistingPhoto(photoId) {
+      const confirmed = confirm('Bạn có chắc chắn muốn xóa ảnh đính kèm này khỏi nhật ký?');
+      if (!confirmed) return;
+
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/projects/${PROJECT_ID}/diaries/photos/${photoId}`, {
+          method: 'DELETE',
+          headers
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showSuccessToast('Đã xóa ảnh đính kèm thành công');
+          existingPhotos = existingPhotos.filter(p => p.id !== photoId);
+          renderExistingPhotos();
+          // Cập nhật lại số lượng ảnh trên dashboard
+          if (currentSelectedDate) {
+            await loadWeekData(currentSelectedDate);
+          }
+        } else {
+          showErrorToast(data.message || 'Xóa ảnh thất bại');
+        }
+      } catch (e) {
+        showErrorToast('Lỗi khi xóa ảnh: ' + e.message);
+      }
+    }
+
+    // Modal Lightbox
+    function openLightbox(src, caption, meta) {
+      const modal = document.getElementById('photo-lightbox');
+      const img = document.getElementById('lightbox-img');
+      const capEl = document.getElementById('lightbox-caption');
+      const metaEl = document.getElementById('lightbox-meta');
+
+      img.src = src;
+      capEl.innerText = caption || 'Ảnh đính kèm';
+      metaEl.innerText = meta || '';
+      modal.classList.add('active');
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById('photo-lightbox');
+      modal.classList.remove('active');
+      document.getElementById('lightbox-img').src = '';
     }
 
     // Chọn radio thời tiết
@@ -891,12 +1354,18 @@
       selectToday();
     }
 
-    // Submit lưu Form (Chống bấm nhiều lần liên tiếp)
+    // ========================================================
+    // SUBMIT LƯU NHẬT KÝ & TẢI ẢNH (T52)
+    // Chống bấm liên tiếp, gửi FormData multipart đúng contract
+    // ========================================================
     async function handleFormSubmit(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-submit-diary');
+      if (btn.disabled) return; // Chống gửi trùng
+
+      // Khóa nút gửi ngay lập tức
       btn.disabled = true;
-      btn.innerHTML = '<span>⏳ Đang lưu dữ liệu...</span>';
+      btn.innerHTML = '<span>⏳ Đang lưu nhật ký & tải ảnh...</span>';
 
       hideToasts();
 
@@ -908,53 +1377,88 @@
       const equipStatus = document.getElementById('input-equipment-status').value.trim();
       const workNotes = document.getElementById('input-work-notes').value.trim();
 
+      // Kiểm tra trường bắt buộc
       if (!diaryDate) {
         showErrorToast('Vui lòng chọn ngày nhật ký');
         btn.disabled = false;
-        btn.innerHTML = '<span>💾 Lưu Nhật Ký Ngày</span>';
+        btn.innerHTML = '<span>💾 Lưu Nhật Ký & Tải Ảnh</span>';
         return;
       }
 
-      const payload = {
-        diary_date: diaryDate,
-        weather_condition: weatherCond,
-        is_rain_day: isRain,
-        weather_notes: weatherNotes,
-        manpower_count: manpower,
-        equipment_status: equipStatus,
-        work_notes: workNotes
-      };
+      // Đóng gói FormData multipart
+      const formData = new FormData();
+      formData.append('diary_date', diaryDate);
+      formData.append('weather_condition', weatherCond);
+      formData.append('is_rain_day', isRain ? '1' : '0');
+      formData.append('weather_notes', weatherNotes);
+      formData.append('manpower_count', String(manpower));
+      formData.append('equipment_status', equipStatus);
+      formData.append('work_notes', workNotes);
+
+      // Liên kết công việc (work_item_id / items)
+      const selectedWorkItemId = document.getElementById('select-work-item').value;
+      if (selectedWorkItemId) {
+        formData.append('work_item_id', selectedWorkItemId);
+        const itemObj = {
+          work_item_id: Number(selectedWorkItemId),
+          work_content: document.getElementById('input-item-content').value.trim() || workNotes,
+          quantity_done: parseFloat(document.getElementById('input-item-quantity').value) || 0,
+          unit: document.getElementById('input-item-unit').value.trim()
+        };
+        formData.append('items', JSON.stringify([itemObj]));
+      }
+
+      // Đính kèm các ảnh đã chọn (field 'photos')
+      selectedPhotos.forEach(p => {
+        formData.append('photos', p.file, p.file.name);
+      });
+
+      // Mảng caption cho các ảnh
+      if (selectedPhotos.length > 0) {
+        const captions = selectedPhotos.map(p => p.caption || '');
+        formData.append('captions', JSON.stringify(captions));
+      }
 
       try {
         const token = localStorage.getItem('quanly_token');
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
+        // LƯU Ý QUAN TRỌNG: KHÔNG đặt Content-Type để trình duyệt tự tạo boundary multipart
 
         const res = await fetch(`/api/projects/${PROJECT_ID}/diaries`, {
           method: 'POST',
           headers,
-          body: JSON.stringify(payload)
+          body: formData
         });
 
         const data = await res.json();
 
         if (res.ok && data.success) {
-          showSuccessToast(`Đã lưu nhật ký ngày ${formatDateDisplay(diaryDate)} thành công! ${isRain ? '🌧️ (Đã đánh dấu ngày mưa)' : ''}`);
+          const photoMsg = selectedPhotos.length > 0 ? ` kèm ${selectedPhotos.length} ảnh đính kèm!` : '';
+          showSuccessToast(`Đã lưu nhật ký ngày ${formatDateDisplay(diaryDate)} thành công${photoMsg}`);
+
+          // Xóa danh sách ảnh tạm đã tải lên thành công
+          clearSelectedPhotos();
+
           // Tải lại dữ liệu tuần để đồng bộ Grid và Metrics
           await loadWeekData(diaryDate);
+          // Tải lại chi tiết để hiển thị ảnh mới lưu
+          await loadFormWithDate(diaryDate);
         } else {
-          showErrorToast(data.message || 'Lưu nhật ký thất bại. Dữ liệu trên form được giữ nguyên.');
+          // Báo lỗi rõ ràng, giữ nguyên form và danh sách ảnh chờ tải để người dùng thử lại
+          showErrorToast(data.message || 'Lưu nhật ký thất bại. Dữ liệu trên form và ảnh được giữ nguyên.');
         }
       } catch (err) {
-        showErrorToast('Lỗi kết nối đến máy chủ: ' + err.message + '. Dữ liệu không bị xóa.');
+        // Lỗi mất mạng hoặc exception: Không báo thành công giả, giữ nguyên dữ liệu
+        showErrorToast('Lỗi kết nối đến máy chủ: ' + err.message + '. Dữ liệu và ảnh không bị mất, vui lòng thử lại.');
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>💾 Lưu Nhật Ký Ngày</span>';
+        btn.innerHTML = '<span>💾 Lưu Nhật Ký & Tải Ảnh</span>';
       }
     }
 
     // ========================================================
-    // TÍNH NĂNG KIỂM THỬ ACCEPTANCE CRITERIA (AC):
+    // TÍNH NĂNG KIỂM THỬ ACCEPTANCE CRITERIA (AC T51):
     // Nhập mưa cả ngày từ Thứ Hai đến Thứ Sáu
     // ========================================================
     async function fillMondayToFridayRainPreset() {
@@ -1037,6 +1541,8 @@
     // Khởi chạy khi tải trang
     window.addEventListener('DOMContentLoaded', () => {
       initUser();
+      loadProjectTasks();
+      initPhotoDropzone();
       selectToday();
     });
   </script>

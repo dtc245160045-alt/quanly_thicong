@@ -3,6 +3,12 @@ const {
   getSiteDiaryByDate,
   saveSiteDiaryEntry,
   lockSiteDiary,
+  getSiteDiaryPhotos,
+  saveSiteDiaryPhoto,
+  deleteSiteDiaryPhoto,
+  getSiteDiaryItems,
+  saveSiteDiaryItem,
+  clearSiteDiaryItems,
   inMemoryTasks
 } = require('../models/store');
 
@@ -48,6 +54,28 @@ class DiaryService {
     this.pool = db?.pool || db;
   }
 
+  _normalizeItems(entryData) {
+    let items = [];
+    if (Array.isArray(entryData.items)) {
+      items = entryData.items;
+    } else if (typeof entryData.items === 'string' && entryData.items.trim()) {
+      try {
+        const parsed = JSON.parse(entryData.items);
+        if (Array.isArray(parsed)) items = parsed;
+      } catch (e) {}
+    }
+
+    if (items.length === 0 && entryData.work_item_id) {
+      items = [{
+        work_item_id: Number(entryData.work_item_id),
+        work_content: String(entryData.work_content || entryData.work_notes || '').trim(),
+        quantity_done: Number(entryData.quantity_done || 0),
+        unit: String(entryData.unit || '').trim()
+      }];
+    }
+    return items;
+  }
+
   validateEntry(data) {
     const errors = [];
     if (!data.diary_date || !isValidDateString(data.diary_date)) {
@@ -66,6 +94,35 @@ class DiaryService {
       }
     }
 
+    if (data.work_item_id !== undefined && data.work_item_id !== null && data.work_item_id !== '') {
+      const wid = Number(data.work_item_id);
+      if (!Number.isInteger(wid) || wid <= 0) {
+        errors.push('Mã công việc (work_item_id) phải là số nguyên dương');
+      }
+    }
+
+    if (data.items) {
+      let itemsList = data.items;
+      if (typeof itemsList === 'string' && itemsList.trim()) {
+        try {
+          itemsList = JSON.parse(itemsList);
+        } catch (e) {
+          errors.push('Danh sách công việc (items) không đúng định dạng JSON');
+        }
+      }
+      if (Array.isArray(itemsList)) {
+        for (const it of itemsList) {
+          if (it.work_item_id !== undefined && it.work_item_id !== null && it.work_item_id !== '') {
+            const wid = Number(it.work_item_id);
+            if (!Number.isInteger(wid) || wid <= 0) {
+              errors.push(`Mã công việc (${it.work_item_id}) trong danh sách công việc không hợp lệ`);
+              break;
+            }
+          }
+        }
+      }
+    }
+
     return errors;
   }
 
@@ -75,30 +132,78 @@ class DiaryService {
       throw new Error('Định dạng ngày không hợp lệ');
     }
 
+    let diary = null;
+
     if (this.pool?.query) {
       const [rows] = await this.pool.query(
         'SELECT * FROM site_diaries WHERE project_id = ? AND diary_date = ? LIMIT 1',
         [pId, dateStr]
       );
       if (rows && rows.length > 0) {
-        const item = rows[0];
-        if (item.diary_date instanceof Date) {
-          const y = item.diary_date.getFullYear();
-          const m = String(item.diary_date.getMonth() + 1).padStart(2, '0');
-          const d = String(item.diary_date.getDate()).padStart(2, '0');
-          item.diary_date = `${y}-${m}-${d}`;
+        diary = rows[0];
+        if (diary.diary_date instanceof Date) {
+          const y = diary.diary_date.getFullYear();
+          const m = String(diary.diary_date.getMonth() + 1).padStart(2, '0');
+          const d = String(diary.diary_date.getDate()).padStart(2, '0');
+          diary.diary_date = `${y}-${m}-${d}`;
         }
-        return item;
       }
-      return null;
+    } else {
+      diary = getSiteDiaryByDate(pId, dateStr);
     }
 
-    return getSiteDiaryByDate(pId, dateStr);
+    if (!diary) return null;
+
+    // Lấy danh sách ảnh đính kèm (T52)
+    let photos = [];
+    if (this.pool?.query) {
+      try {
+        const [pRows] = await this.pool.query(
+          'SELECT id, diary_id, file_name, file_path, file_size, mime_type, caption, created_at FROM site_diary_photos WHERE diary_id = ? ORDER BY id ASC',
+          [diary.id]
+        );
+        photos = (pRows || []).map(p => ({
+          ...p,
+          url: `/uploads/diaries/${p.file_name}`
+        }));
+      } catch (e) {
+        photos = getSiteDiaryPhotos(diary.id);
+      }
+    } else {
+      photos = getSiteDiaryPhotos(diary.id).map(p => ({
+        ...p,
+        url: `/uploads/diaries/${p.file_name}`
+      }));
+    }
+
+    // Lấy danh sách công việc chi tiết (T51/T52)
+    let items = [];
+    if (this.pool?.query) {
+      try {
+        const [iRows] = await this.pool.query(
+          `SELECT i.*, w.name as work_item_name, w.code as work_item_code
+           FROM site_diary_items i
+           LEFT JOIN work_items w ON i.work_item_id = w.id
+           WHERE i.diary_id = ? ORDER BY i.id ASC`,
+          [diary.id]
+        );
+        items = iRows || [];
+      } catch (e) {
+        items = getSiteDiaryItems(diary.id);
+      }
+    } else {
+      items = getSiteDiaryItems(diary.id);
+    }
+
+    diary.photos = photos;
+    diary.items = items;
+    return diary;
   }
 
   async getDiaries(projectId, { date, start_date, end_date, is_rain_day } = {}) {
     const pId = Number(projectId);
 
+    let list = [];
     if (this.pool?.query) {
       let query = 'SELECT * FROM site_diaries WHERE project_id = ?';
       const params = [pId];
@@ -118,7 +223,7 @@ class DiaryService {
 
       query += ' ORDER BY diary_date ASC';
       const [rows] = await this.pool.query(query, params);
-      return (rows || []).map(r => {
+      list = (rows || []).map(r => {
         if (r.diary_date instanceof Date) {
           const y = r.diary_date.getFullYear();
           const m = String(r.diary_date.getMonth() + 1).padStart(2, '0');
@@ -127,18 +232,40 @@ class DiaryService {
         }
         return r;
       });
+    } else {
+      list = getSiteDiaries({
+        project_id: pId,
+        date,
+        start_date,
+        end_date,
+        is_rain_day
+      });
     }
 
-    return getSiteDiaries({
-      project_id: pId,
-      date,
-      start_date,
-      end_date,
-      is_rain_day
-    });
+    // Đính kèm số lượng ảnh cho mỗi nhật ký
+    return Promise.all(list.map(async (entry) => {
+      let photosCount = 0;
+      if (this.pool?.query) {
+        try {
+          const [cRows] = await this.pool.query(
+            'SELECT COUNT(*) as count FROM site_diary_photos WHERE diary_id = ?',
+            [entry.id]
+          );
+          photosCount = cRows[0]?.count || 0;
+        } catch (e) {
+          photosCount = getSiteDiaryPhotos(entry.id).length;
+        }
+      } else {
+        photosCount = getSiteDiaryPhotos(entry.id).length;
+      }
+      return {
+        ...entry,
+        photosCount
+      };
+    }));
   }
 
-  async saveDiary(projectId, entryData, userId = 1) {
+  async saveDiary(projectId, entryData, userId = 1, files = []) {
     const pId = Number(projectId);
     if (!Number.isInteger(pId) || pId <= 0) {
       const err = new Error('projectId không hợp lệ');
@@ -164,8 +291,10 @@ class DiaryService {
     const tempMin = entryData.temperature_min !== undefined && entryData.temperature_min !== null ? Number(entryData.temperature_min) : null;
     const tempMax = entryData.temperature_max !== undefined && entryData.temperature_max !== null ? Number(entryData.temperature_max) : null;
 
+    let diaryId = null;
+
     if (this.pool?.query) {
-      // 1. Kiểm tra khóa sổ trước khi lưu
+      // 1. Kiểm tra khóa sổ trước khi lưu (S-24)
       const [existingRows] = await this.pool.query(
         'SELECT id, is_locked FROM site_diaries WHERE project_id = ? AND diary_date = ? LIMIT 1',
         [pId, diaryDate]
@@ -178,7 +307,7 @@ class DiaryService {
       }
 
       // 2. Thực hiện UPSERT an toàn - Không tạo bản ghi trùng khi lưu nhiều lần
-      await this.pool.query(
+      const [insertRes] = await this.pool.query(
         `INSERT INTO site_diaries (
           project_id, diary_date, weather_condition, is_rain_day,
           temperature_min, temperature_max, weather_notes,
@@ -201,11 +330,47 @@ class DiaryService {
         ]
       );
 
+      diaryId = (existingRows && existingRows.length > 0) ? existingRows[0].id : insertRes.insertId;
+
+      // 3. Lưu chi tiết các công việc thực hiện trong ngày (items)
+      const items = this._normalizeItems(entryData);
+      if (items.length > 0) {
+        await this.pool.query('DELETE FROM site_diary_items WHERE diary_id = ?', [diaryId]);
+        for (const it of items) {
+          const wId = it.work_item_id ? Number(it.work_item_id) : null;
+          const content = String(it.work_content || it.content || it.name || '').trim();
+          const qty = Number(it.quantity_done || it.quantity || 0);
+          const unit = String(it.unit || '').trim();
+          if (content || wId) {
+            await this.pool.query(
+              'INSERT INTO site_diary_items (diary_id, work_item_id, work_content, quantity_done, unit) VALUES (?, ?, ?, ?, ?)',
+              [diaryId, wId, content || 'Hoàn thành hạng mục', qty, unit]
+            );
+          }
+        }
+      }
+
+      // 4. Lưu ảnh đính kèm (photos)
+      if (Array.isArray(files) && files.length > 0) {
+        for (const file of files) {
+          const fileName = file.filename || file.file_name || file.name;
+          const filePath = file.path || file.file_path || file.url || '';
+          const fileSize = Number(file.size || file.file_size || 0);
+          const mimeType = file.mimetype || file.mime_type || 'image/jpeg';
+          const caption = file.caption ? String(file.caption).trim() : null;
+
+          await this.pool.query(
+            'INSERT INTO site_diary_photos (diary_id, file_name, file_path, file_size, mime_type, caption) VALUES (?, ?, ?, ?, ?, ?)',
+            [diaryId, fileName, filePath, fileSize, mimeType, caption]
+          );
+        }
+      }
+
       return this.getDiaryByDate(pId, diaryDate);
     }
 
     // In-memory fallback
-    return saveSiteDiaryEntry({
+    const saved = saveSiteDiaryEntry({
       project_id: pId,
       diary_date: diaryDate,
       weather_condition: weatherCond,
@@ -218,6 +383,116 @@ class DiaryService {
       work_notes: workNotes,
       created_by: userId
     });
+
+    diaryId = saved.id;
+
+    // Lưu items in-memory
+    const items = this._normalizeItems(entryData);
+    if (items.length > 0) {
+      clearSiteDiaryItems(diaryId);
+      items.forEach(it => {
+        saveSiteDiaryItem({
+          diary_id: diaryId,
+          work_item_id: it.work_item_id ? Number(it.work_item_id) : null,
+          work_content: String(it.work_content || it.content || it.name || '').trim(),
+          quantity_done: Number(it.quantity_done || it.quantity || 0),
+          unit: String(it.unit || '').trim()
+        });
+      });
+    }
+
+    // Lưu photos in-memory
+    if (Array.isArray(files) && files.length > 0) {
+      files.forEach(f => {
+        saveSiteDiaryPhoto({
+          diary_id: diaryId,
+          file_name: f.filename || f.file_name || f.name,
+          file_path: f.path || f.file_path || f.url || '',
+          file_size: Number(f.size || f.file_size || 0),
+          mime_type: f.mimetype || f.mime_type || 'image/jpeg',
+          caption: f.caption ? String(f.caption).trim() : null
+        });
+      });
+    }
+
+    return this.getDiaryByDate(pId, diaryDate);
+  }
+
+  async addPhotos(projectId, diaryDate, files = [], userId = 1) {
+    const pId = Number(projectId);
+    const diary = await this.getDiaryByDate(pId, diaryDate);
+    if (!diary) {
+      const err = new Error(`Không tìm thấy nhật ký ngày ${diaryDate} để đính kèm ảnh`);
+      err.status = 404;
+      throw err;
+    }
+
+    if (diary.is_locked === 1) {
+      const err = new Error('Nhật ký của ngày này đã bị khóa sổ, không thể đính kèm thêm ảnh.');
+      err.status = 423;
+      throw err;
+    }
+
+    if (!Array.isArray(files) || files.length === 0) {
+      const err = new Error('Không có file ảnh nào được tải lên');
+      err.status = 400;
+      throw err;
+    }
+
+    if (this.pool?.query) {
+      for (const file of files) {
+        const fileName = file.filename || file.file_name;
+        const filePath = file.path || file.file_path || '';
+        const fileSize = Number(file.size || 0);
+        const mimeType = file.mimetype || 'image/jpeg';
+        const caption = file.caption || null;
+
+        await this.pool.query(
+          'INSERT INTO site_diary_photos (diary_id, file_name, file_path, file_size, mime_type, caption) VALUES (?, ?, ?, ?, ?, ?)',
+          [diary.id, fileName, filePath, fileSize, mimeType, caption]
+        );
+      }
+    } else {
+      files.forEach(f => {
+        saveSiteDiaryPhoto({
+          diary_id: diary.id,
+          file_name: f.filename || f.file_name,
+          file_path: f.path || f.file_path || '',
+          file_size: Number(f.size || 0),
+          mime_type: f.mimetype || 'image/jpeg',
+          caption: f.caption || null
+        });
+      });
+    }
+
+    return this.getDiaryByDate(pId, diaryDate);
+  }
+
+  async deletePhoto(projectId, photoId) {
+    const phId = Number(photoId);
+    if (this.pool?.query) {
+      const [rows] = await this.pool.query(
+        `SELECT p.*, d.is_locked, d.project_id
+         FROM site_diary_photos p
+         JOIN site_diaries d ON p.diary_id = d.id
+         WHERE p.id = ? LIMIT 1`,
+        [phId]
+      );
+      if (!rows || rows.length === 0) {
+        const err = new Error('Không tìm thấy ảnh đính kèm');
+        err.status = 404;
+        throw err;
+      }
+      if (rows[0].is_locked === 1) {
+        const err = new Error('Nhật ký đã bị khóa sổ, không thể xóa ảnh.');
+        err.status = 423;
+        throw err;
+      }
+      await this.pool.query('DELETE FROM site_diary_photos WHERE id = ?', [phId]);
+      return true;
+    }
+
+    return deleteSiteDiaryPhoto(phId);
   }
 
   /**
@@ -325,6 +600,19 @@ class DiaryService {
         possibleDelayNote: workdayRainCount > 0 ? `Bị ảnh hưởng gián đoạn do ${workdayRainCount} ngày mưa trong tuần` : 'Đang thực hiện bình thường'
       }))
     };
+  }
+
+  async lockDiary(projectId, dateStr, userId = 1) {
+    const pId = Number(projectId);
+    if (this.pool?.query) {
+      await this.pool.query(
+        'UPDATE site_diaries SET is_locked = 1, locked_at = CURRENT_TIMESTAMP, locked_by = ? WHERE project_id = ? AND diary_date = ?',
+        [userId, pId, dateStr]
+      );
+    } else {
+      lockSiteDiary(pId, dateStr, userId);
+    }
+    return { success: true, message: `Đã khóa sổ nhật ký ngày ${dateStr}` };
   }
 }
 

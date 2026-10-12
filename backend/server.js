@@ -16,7 +16,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Header chống lưu bộ nhớ đệm (Chống nút Back trình duyệt truy cập lại trang bảo vệ sau đăng xuất)
 app.use((req, res, next) => {
@@ -26,8 +27,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Phục vụ giao diện người dùng frontend
+// Phục vụ giao diện người dùng frontend và file uploads
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API kiem tra trang thai server (S-01)
 app.get('/api/health', (req, res) => {
@@ -41,8 +43,15 @@ app.get('/api/db-check', async (req, res) => {
       const [rows] = await db.pool.query('SELECT 1 + 1 AS solution');
       return res.json({ status: 'Connected', data: rows });
     }
+    // Nếu có cấu hình DB_HOST (môi trường Docker/CI), trả về 503 để CI polling đợi DB sẵn sàng
+    if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+      return res.status(503).json({ status: 'Connecting', message: 'Đang đợi kết nối MySQL container...' });
+    }
     return res.json({ status: 'Standalone', message: 'Đang chạy in-memory store (chưa kết nối MySQL container)' });
   } catch (error) {
+    if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+      return res.status(503).json({ status: 'Error', message: error.message });
+    }
     return res.json({ status: 'Standalone', message: error.message });
   }
 });

@@ -36,6 +36,7 @@ if (mysql) {
 
 // Safe pool wrapper: Tuyệt đối không chờ socket timeout nếu DB offline (phản hồi trong 0ms)
 const safePool = {
+  get isConnected() { return isConnected; },
   query: async (...args) => {
     if (!isConnected || !rawPool) {
       const err = new Error('DB_OFFLINE');
@@ -543,7 +544,23 @@ async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isD
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44) và site_diaries (T-50/51) sẵn sàng.`);
+    // 12. Tạo bảng site_diary_photos (TASK T52 - S-23: Ảnh đính kèm nhật ký thi công)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_diary_photos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        diary_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size INT NOT NULL,
+        mime_type VARCHAR(100) NOT NULL,
+        caption VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (diary_id) REFERENCES site_diaries(id) ON DELETE CASCADE,
+        INDEX idx_photo_diary (diary_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44), site_diaries (T-50/51) và photos (T-52) sẵn sàng.`);
     return;
   } catch (err) {
     if (attempt < maxRetries) {
