@@ -4,14 +4,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "lint": "node -c server.js wbs_routes.js",
-    "test": "echo \"All automated tests passed\" && exit 0"
+    "lint": "node --check server.js && node --check db.js && node --check wbs_routes.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
     "express": "^4.22.3",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
     "mysql2": "^3.24.4"
   }
 }
