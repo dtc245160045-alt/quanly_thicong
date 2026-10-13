@@ -489,14 +489,254 @@ let inMemoryProjects = [
 ];
 
 let inMemoryTasks = [
-  { id: 1, project_id: 1, work_item_id: 3, name: 'Đào đất thủ công hố móng trụ T1', code: 'CV-01', duration: 4, actual_start: '2026-10-01', actual_end: '2026-10-04', percent_complete: 100, status: 'completed' },
-  { id: 2, project_id: 1, work_item_id: 4, name: 'Vận chuyển đất thải ra bãi tập kết', code: 'CV-02', duration: 3, actual_start: '2026-10-04', actual_end: null, percent_complete: 60, status: 'in_progress' },
-  { id: 3, project_id: 1, work_item_id: 5, name: 'Đổ bê tông lót móng M1 dày 100mm', code: 'CV-03', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending' },
-  { id: 4, project_id: 1, work_item_id: 5, name: 'Gia công lắp dựng cốt thép móng', code: 'CV-04', duration: 5, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending' },
-  { id: 5, project_id: 1, work_item_id: 5, name: 'Lắp dựng ván khuôn móng đài cọc', code: 'CV-05', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending' },
-  { id: 6, project_id: 1, work_item_id: 6, name: 'Đổ bê tông móng thương phẩm B25', code: 'CV-06', duration: 2, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending' },
-  { id: 7, project_id: 1, work_item_id: 6, name: 'Bảo dưỡng và tháo dỡ ván khuôn', code: 'CV-07', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending' }
+  { id: 1, project_id: 1, work_item_id: 3, name: 'Đào đất thủ công hố móng trụ T1', code: 'CV-01', duration: 4, actual_start: '2026-10-01', actual_end: '2026-10-04', percent_complete: 100, status: 'completed', team_id: 1, assigned_by: 2, assigned_at: '2026-10-01T08:00:00Z', assignment_note: 'Thi công an toàn' },
+  { id: 2, project_id: 1, work_item_id: 4, name: 'Vận chuyển đất thải ra bãi tập kết', code: 'CV-02', duration: 3, actual_start: '2026-10-04', actual_end: null, percent_complete: 60, status: 'in_progress', team_id: 1, assigned_by: 2, assigned_at: '2026-10-04T08:00:00Z' },
+  { id: 3, project_id: 1, work_item_id: 5, name: 'Đổ bê tông lót móng M1 dày 100mm', code: 'CV-03', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending', team_id: 1, assigned_by: 2, assigned_at: '2026-10-05T08:00:00Z' },
+  { id: 4, project_id: 1, work_item_id: 5, name: 'Gia công lắp dựng cốt thép móng', code: 'CV-04', duration: 5, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending', team_id: 2, assigned_by: 2, assigned_at: '2026-10-06T08:00:00Z' },
+  { id: 5, project_id: 1, work_item_id: 5, name: 'Lắp dựng ván khuôn móng đài cọc', code: 'CV-05', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending', team_id: 2, assigned_by: 2, assigned_at: '2026-10-06T08:00:00Z' },
+  { id: 6, project_id: 1, work_item_id: 6, name: 'Đổ bê tông móng thương phẩm B25', code: 'CV-06', duration: 2, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending', team_id: null },
+  { id: 7, project_id: 1, work_item_id: 6, name: 'Bảo dưỡng và tháo dỡ ván khuôn', code: 'CV-07', duration: 3, actual_start: null, actual_end: null, percent_complete: 0, status: 'pending', team_id: null }
 ];
+
+// ==========================================
+// ĐỘI THI CÔNG & GIAO VIỆC (S-25 / SCRUM-125 / T-50)
+// ==========================================
+let inMemoryTeams = [
+  {
+    id: 1,
+    project_id: 1,
+    name: 'Đội Cốp Pha & Bê Tông Móng',
+    code: 'DOI-01',
+    leader_id: null,
+    leader_name: 'Nguyễn Văn Đội 1',
+    phone: '0912345678',
+    specialty: 'Bê tông - Cốp pha',
+    member_count: 15,
+    max_parallel_tasks: 3,
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 2,
+    project_id: 1,
+    name: 'Đội Gia Công & Lắp Dựng Cốt Thép',
+    code: 'DOI-02',
+    leader_id: null,
+    leader_name: 'Trần Văn Cương',
+    phone: '0987654321',
+    specialty: 'Cốt thép kết cấu',
+    member_count: 12,
+    max_parallel_tasks: 2,
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 3,
+    project_id: 1,
+    name: 'Đội Xây Tô Hoàn Thiện & Điện Nước',
+    code: 'DOI-03',
+    leader_id: null,
+    leader_name: 'Lê Văn Thợ',
+    phone: '0905123456',
+    specialty: 'Xây trát - Cơ điện M&E',
+    member_count: 10,
+    max_parallel_tasks: 2,
+    status: 'active',
+    created_at: new Date().toISOString()
+  }
+];
+
+let inMemoryTaskAssignments = [
+  { id: 1, project_id: 1, task_id: 1, team_id: 1, assigned_by: 2, assigned_at: '2026-10-01T08:00:00Z', note: 'Thi công hố móng trụ T1', status: 'assigned' },
+  { id: 2, project_id: 1, task_id: 2, team_id: 1, assigned_by: 2, assigned_at: '2026-10-04T08:00:00Z', note: 'Vận chuyển đất thải', status: 'assigned' },
+  { id: 3, project_id: 1, task_id: 3, team_id: 1, assigned_by: 2, assigned_at: '2026-10-05T08:00:00Z', note: 'Bê tông lót móng M1', status: 'assigned' },
+  { id: 4, project_id: 1, task_id: 4, team_id: 2, assigned_by: 2, assigned_at: '2026-10-06T08:00:00Z', note: 'Cốt thép móng', status: 'assigned' },
+  { id: 5, project_id: 1, task_id: 5, team_id: 2, assigned_by: 2, assigned_at: '2026-10-06T08:00:00Z', note: 'Ván khuôn móng đài cọc', status: 'assigned' }
+];
+
+function getTeams(projectId = 1) {
+  const pId = Number(projectId);
+  const teams = inMemoryTeams.filter(t => t.project_id === pId);
+  return teams.map(team => {
+    const assignedTasks = inMemoryTasks.filter(t => t.project_id === pId && Number(t.team_id) === Number(team.id));
+    const totalCount = assignedTasks.length;
+    const activeTasks = assignedTasks.filter(t => (t.status !== 'completed' && Number(t.percent_complete || 0) < 100));
+    const activeCount = activeTasks.length;
+    const completedCount = totalCount - activeCount;
+
+    const maxParallel = Number(team.max_parallel_tasks || 3);
+    const isOverloaded = activeCount > maxParallel;
+    const isFull = activeCount === maxParallel;
+
+    let workloadStatus = 'normal';
+    if (isOverloaded) {
+      workloadStatus = 'overloaded';
+    } else if (isFull) {
+      workloadStatus = 'full';
+    }
+
+    return {
+      ...team,
+      task_count: totalCount,
+      active_task_count: activeCount,
+      completed_task_count: completedCount,
+      is_overloaded: isOverloaded,
+      is_full: isFull,
+      workload_ratio: Number((activeCount / maxParallel).toFixed(2)),
+      workload_status: workloadStatus,
+      active_tasks: activeTasks.map(at => ({ id: at.id, name: at.name, code: at.code, duration: at.duration, percent_complete: at.percent_complete }))
+    };
+  });
+}
+
+function getTeamById(teamId) {
+  const tId = Number(teamId);
+  return inMemoryTeams.find(t => t.id === tId) || null;
+}
+
+function createTeamData(data) {
+  const newId = inMemoryTeams.length > 0 ? Math.max(...inMemoryTeams.map(t => t.id)) + 1 : 1;
+  const pId = Number(data.project_id || 1);
+  const newTeam = {
+    id: newId,
+    project_id: pId,
+    name: String(data.name || '').trim(),
+    code: data.code ? String(data.code).trim() : `DOI-${String(newId).padStart(2, '0')}`,
+    leader_id: data.leader_id ? Number(data.leader_id) : null,
+    leader_name: data.leader_name ? String(data.leader_name).trim() : null,
+    phone: data.phone ? String(data.phone).trim() : null,
+    specialty: data.specialty ? String(data.specialty).trim() : 'Thi công xây dựng',
+    member_count: Number(data.member_count || 10),
+    max_parallel_tasks: Number(data.max_parallel_tasks || 3),
+    status: data.status || 'active',
+    created_at: new Date().toISOString()
+  };
+  inMemoryTeams.push(newTeam);
+  return newTeam;
+}
+
+function updateTeamData(teamId, data) {
+  const tId = Number(teamId);
+  const team = inMemoryTeams.find(t => t.id === tId);
+  if (!team) return null;
+  if (data.name !== undefined) team.name = String(data.name).trim();
+  if (data.code !== undefined) team.code = String(data.code).trim();
+  if (data.leader_id !== undefined) team.leader_id = data.leader_id ? Number(data.leader_id) : null;
+  if (data.leader_name !== undefined) team.leader_name = String(data.leader_name).trim();
+  if (data.phone !== undefined) team.phone = String(data.phone).trim();
+  if (data.specialty !== undefined) team.specialty = String(data.specialty).trim();
+  if (data.member_count !== undefined) team.member_count = Number(data.member_count);
+  if (data.max_parallel_tasks !== undefined) team.max_parallel_tasks = Number(data.max_parallel_tasks);
+  if (data.status !== undefined) team.status = data.status;
+  team.updated_at = new Date().toISOString();
+  return team;
+}
+
+function deleteTeamData(teamId) {
+  const tId = Number(teamId);
+  const idx = inMemoryTeams.findIndex(t => t.id === tId);
+  if (idx === -1) return false;
+  inMemoryTeams.splice(idx, 1);
+  inMemoryTasks.forEach(t => {
+    if (t.team_id === tId) {
+      t.team_id = null;
+      t.assigned_by = null;
+      t.assigned_at = null;
+      t.assignment_note = null;
+    }
+  });
+  return true;
+}
+
+function assignTaskToTeamData({ projectId = 1, taskId, teamId, assignedBy = 2, note = '' }) {
+  const tId = Number(taskId);
+  const tmId = Number(teamId);
+  const task = inMemoryTasks.find(t => t.id === tId && t.project_id === Number(projectId));
+  if (!task) {
+    const err = new Error('Không tìm thấy công việc trong dự án.');
+    err.status = 404;
+    throw err;
+  }
+  const team = inMemoryTeams.find(t => t.id === tmId && t.project_id === Number(projectId));
+  if (!team) {
+    const err = new Error('Không tìm thấy đội thi công trong dự án.');
+    err.status = 404;
+    throw err;
+  }
+
+  const otherActiveTasks = inMemoryTasks.filter(
+    t => t.project_id === Number(projectId) && Number(t.team_id) === tmId && t.id !== tId && t.status !== 'completed' && Number(t.percent_complete || 0) < 100
+  );
+  const willBeActive = task.status !== 'completed' && Number(task.percent_complete || 0) < 100;
+  const newActiveCount = otherActiveTasks.length + (willBeActive ? 1 : 0);
+  const maxParallel = Number(team.max_parallel_tasks || 3);
+  const isOverloaded = newActiveCount > maxParallel;
+
+  const nowIso = new Date().toISOString();
+  task.team_id = tmId;
+  task.assigned_by = Number(assignedBy || 2);
+  task.assigned_at = nowIso;
+  task.assignment_note = note ? String(note).trim() : null;
+
+  const assignLogId = inMemoryTaskAssignments.length > 0 ? Math.max(...inMemoryTaskAssignments.map(a => a.id)) + 1 : 1;
+  const assignmentLog = {
+    id: assignLogId,
+    project_id: Number(projectId),
+    task_id: tId,
+    team_id: tmId,
+    assigned_by: Number(assignedBy || 2),
+    assigned_at: nowIso,
+    note: note ? String(note).trim() : null,
+    status: 'assigned'
+  };
+  inMemoryTaskAssignments.push(assignmentLog);
+
+  let warning = null;
+  if (isOverloaded) {
+    warning = `Cảnh báo quá tải: Đội "${team.name}" hiện đang phụ trách ${newActiveCount} công việc đang thi công (định mức tối đa là ${maxParallel} việc song song). Việc giao thêm công việc có thể dẫn đến chậm tiến độ!`;
+  }
+
+  return {
+    success: true,
+    task,
+    team,
+    is_overloaded: isOverloaded,
+    active_task_count: newActiveCount,
+    max_parallel_tasks: maxParallel,
+    warning
+  };
+}
+
+function unassignTaskData({ projectId = 1, taskId, assignedBy = 2 }) {
+  const tId = Number(taskId);
+  const task = inMemoryTasks.find(t => t.id === tId && t.project_id === Number(projectId));
+  if (!task) {
+    const err = new Error('Không tìm thấy công việc trong dự án.');
+    err.status = 404;
+    throw err;
+  }
+  const oldTeamId = task.team_id;
+  task.team_id = null;
+  task.assigned_by = null;
+  task.assigned_at = null;
+  task.assignment_note = null;
+
+  if (oldTeamId) {
+    const assignLogId = inMemoryTaskAssignments.length > 0 ? Math.max(...inMemoryTaskAssignments.map(a => a.id)) + 1 : 1;
+    inMemoryTaskAssignments.push({
+      id: assignLogId,
+      project_id: Number(projectId),
+      task_id: tId,
+      team_id: oldTeamId,
+      assigned_by: Number(assignedBy || 2),
+      assigned_at: new Date().toISOString(),
+      note: 'Hủy giao việc',
+      status: 'unassigned'
+    });
+  }
+
+  return { success: true, task };
+}
 
 let inMemoryDependencies = [
   { id: 1, project_id: 1, predecessor_task_id: 1, successor_task_id: 2, dependency_type: 'FS', lag_days: 0 },
@@ -611,6 +851,15 @@ module.exports = {
   getTasks,
   createTaskData,
   updateTaskData,
-  deleteTaskData
+  deleteTaskData,
+  inMemoryTeams,
+  inMemoryTaskAssignments,
+  getTeams,
+  getTeamById,
+  createTeamData,
+  updateTeamData,
+  deleteTeamData,
+  assignTaskToTeamData,
+  unassignTaskData
 };
 

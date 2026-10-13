@@ -94,6 +94,10 @@ app.get('/diary', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/diary.html'));
 });
 
+app.get('/teams', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/teams.html'));
+});
+
 // Middleware xác thực token phiên
 const { authenticate } = require('./src/utils/rbac');
 app.use(authenticate);
@@ -122,6 +126,10 @@ app.use("/api", schedulingRoutes(db));
 // Sprint 4: S-22 / T50 & T51 - Nhật ký công trường, thiết bị, thời tiết & ngày mưa
 const diaryRoutes = require("./src/routes/diaryRoutes");
 app.use("/api", diaryRoutes(db));
+
+// S-25 / SCRUM-125 / T-50: Đội thi công & Chỉ huy trưởng giao việc
+const teamRoutes = require("./src/routes/teamRoutes");
+app.use("/api", teamRoutes(db));
 
 // ==========================================
 // CÁC ENDPOINT CHO SAO LƯU & KHÔI PHỤC CSDL (S-20, T-46, T-47)

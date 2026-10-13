@@ -560,7 +560,93 @@ async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isD
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44), site_diaries (T-50/51) và photos (T-52) sẵn sàng.`);
+    // 13. Tạo bảng project_teams & task_assignments (S-25 / SCRUM-125 / T-50: Đội thi công & Giao việc)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_teams (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        code VARCHAR(50) NULL,
+        leader_id INT NULL,
+        leader_name VARCHAR(100) NULL,
+        phone VARCHAR(20) NULL,
+        specialty VARCHAR(100) NULL,
+        member_count INT NOT NULL DEFAULT 10,
+        max_parallel_tasks INT NOT NULL DEFAULT 3,
+        status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (leader_id) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_teams_project (project_id),
+        INDEX idx_teams_leader (leader_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Kiểm tra & thêm các cột giao việc vào bảng tasks nếu chưa có
+    try {
+      const [taskCols] = await pool.query(`
+        SELECT COLUMN_NAME 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks' AND COLUMN_NAME IN ('team_id', 'assigned_by', 'assigned_at', 'assignment_note')
+      `);
+      const existingCols = (taskCols || []).map(c => c.COLUMN_NAME.toLowerCase());
+      if (!existingCols.includes('team_id')) {
+        await pool.query('ALTER TABLE tasks ADD COLUMN team_id INT NULL AFTER percent_complete');
+      }
+      if (!existingCols.includes('assigned_by')) {
+        await pool.query('ALTER TABLE tasks ADD COLUMN assigned_by INT NULL AFTER team_id');
+      }
+      if (!existingCols.includes('assigned_at')) {
+        await pool.query('ALTER TABLE tasks ADD COLUMN assigned_at DATETIME NULL AFTER assigned_by');
+      }
+      if (!existingCols.includes('assignment_note')) {
+        await pool.query('ALTER TABLE tasks ADD COLUMN assignment_note VARCHAR(255) NULL AFTER assigned_at');
+      }
+    } catch (teamColErr) {
+      console.warn('[DB] Lưu ý khi kiểm tra cột giao việc bảng tasks:', teamColErr.message);
+    }
+
+    // Bảng task_assignments (Lịch sử và nhật ký giao việc)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS task_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        task_id INT NOT NULL,
+        team_id INT NOT NULL,
+        assigned_by INT NULL,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        note TEXT NULL,
+        status ENUM('assigned', 'reassigned', 'unassigned') DEFAULT 'assigned',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (team_id) REFERENCES project_teams(id) ON DELETE CASCADE,
+        INDEX idx_ta_project (project_id),
+        INDEX idx_ta_task (task_id),
+        INDEX idx_ta_team (team_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Seed 3 đội thi công mẫu cho Dự án 1
+    await pool.query(`
+      INSERT INTO project_teams (id, project_id, name, code, leader_name, phone, specialty, member_count, max_parallel_tasks, status)
+      VALUES
+        (1, 1, 'Đội Cốp Pha & Bê Tông Móng', 'DOI-01', 'Nguyễn Văn Đội 1', '0912345678', 'Bê tông - Cốp pha', 15, 3, 'active'),
+        (2, 1, 'Đội Gia Công & Lắp Dựng Cốt Thép', 'DOI-02', 'Trần Văn Cương', '0987654321', 'Cốt thép kết cấu', 12, 2, 'active'),
+        (3, 1, 'Đội Xây Tô Hoàn Thiện & Điện Nước', 'DOI-03', 'Lê Văn Thợ', '0905123456', 'Xây trát - Cơ điện M&E', 10, 2, 'active')
+      ON DUPLICATE KEY UPDATE name = VALUES(name), leader_name = VALUES(leader_name), max_parallel_tasks = VALUES(max_parallel_tasks);
+    `);
+
+    // Cập nhật gán việc mẫu
+    await pool.query(`
+      UPDATE tasks SET team_id = 1, assigned_by = 2, assigned_at = '2026-10-01 08:00:00' WHERE id = 1 AND project_id = 1 AND (team_id IS NULL OR team_id = 1);
+    `);
+    await pool.query(`
+      UPDATE tasks SET team_id = 1, assigned_by = 2, assigned_at = '2026-10-04 08:00:00' WHERE id = 2 AND project_id = 1 AND (team_id IS NULL OR team_id = 1);
+    `);
+
+    console.log(`[DB] Đã đồng bộ ${inMemoryUsers.length} tài khoản người dùng, schema calendars (S-17), milestones (T-43), alerts (T-44), site_diaries (T-50/51), photos (T-52) và project_teams (S-25/T-50) sẵn sàng.`);
     return;
   } catch (err) {
     if (attempt < maxRetries) {
