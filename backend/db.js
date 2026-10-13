@@ -223,10 +223,43 @@ async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isD
       CREATE TABLE IF NOT EXISTS project_members (
         project_id INT NOT NULL,
         user_id INT NOT NULL,
+        role_id INT NOT NULL DEFAULT 4,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (project_id, user_id),
         CONSTRAINT fk_pm_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
         CONSTRAINT fk_pm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    try {
+      const [pmCols] = await pool.query(`
+        SELECT COLUMN_NAME 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_members' AND COLUMN_NAME = 'role_id'
+      `);
+      if (!pmCols || pmCols.length === 0) {
+        await pool.query('ALTER TABLE project_members ADD COLUMN role_id INT NOT NULL DEFAULT 4 AFTER user_id');
+      }
+    } catch (migErr) {}
+
+    // Bảng project_invitations (S-28 / SCRUM-120: Lời mời tham gia dự án)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_invitations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        role_id INT NOT NULL DEFAULT 4,
+        invited_by INT NULL,
+        status ENUM('pending', 'accepted', 'revoked') NOT NULL DEFAULT 'pending',
+        token VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles(id),
+        FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_inv_project (project_id),
+        INDEX idx_inv_email (email),
+        INDEX idx_inv_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
@@ -372,7 +405,9 @@ async function initDbSchema(maxRetries = (isDockerOrCi ? 25 : 1), delayMs = (isD
 
     // Gán quyền thành viên dự án mẫu 1 cho Admin (1), PM (2), Viewer (3)
     await pool.query(`
-      INSERT IGNORE INTO project_members (project_id, user_id) VALUES (1, 1), (1, 2), (1, 3);
+      INSERT INTO project_members (project_id, user_id, role_id)
+      VALUES (1, 1, 1), (1, 2, 2), (1, 3, 7)
+      ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
     `);
 
     // Sửa triệt để lỗi font/mojibake dữ liệu mẫu WBS và tasks theo cách idempotent

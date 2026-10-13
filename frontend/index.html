@@ -674,7 +674,88 @@
       .metrics-grid { grid-template-columns: 1fr; }
       .hero-banner { flex-direction: column; align-items: flex-start; gap: 12px; }
       .panel-footer { flex-direction: column; align-items: flex-start; }
+      .project-grid { grid-template-columns: 1fr; }
     }
+
+    /* === MODAL & S-28 PROJECT MEMBER STYLES === */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.65); display: none; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: #ffffff; border: 2px solid var(--border-outer);
+      border-radius: 16px; width: 100%; max-width: 760px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden;
+      display: flex; flex-direction: column; max-height: 90vh;
+    }
+    .modal-header {
+      padding: 18px 24px; border-bottom: 2px solid var(--border-card); background: #f8fafc;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 16.5px; font-weight: 800; color: var(--text-title); display: flex; align-items: center; gap: 8px; }
+    .btn-close-modal { background: none; border: none; font-size: 22px; color: var(--text-muted); cursor: pointer; padding: 4px; line-height: 1; }
+    .btn-close-modal:hover { color: var(--text-title); }
+    .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+    .modal-footer { padding: 16px 24px; border-top: 2px solid var(--border-card); background: #f8fafc; display: flex; justify-content: flex-end; gap: 10px; }
+
+    .modal-tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 4px; }
+    .modal-tab-btn {
+      padding: 8px 16px; border-radius: 8px; border: 1.5px solid transparent; background: transparent;
+      font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+    }
+    .modal-tab-btn:hover { background: #f1f5f9; color: var(--text-title); }
+    .modal-tab-btn.active {
+      background: var(--brand-blue-soft); color: var(--brand-blue); border-color: var(--brand-blue-border); font-weight: 800;
+    }
+
+    .project-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px;
+    }
+    .project-card {
+      background: #ffffff; border: 1.5px solid var(--border-card); border-radius: 12px;
+      padding: 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+      transition: all 0.2s; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+    .project-card:hover { border-color: var(--brand-blue); box-shadow: var(--shadow-card); }
+    .project-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .project-card-code { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: var(--brand-blue); background: var(--brand-blue-soft); padding: 3px 8px; border-radius: 5px; }
+    .project-card-name { font-size: 16px; font-weight: 800; color: var(--text-title); margin-top: 6px; }
+    .project-card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+    .project-card-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+    
+    .btn-manage-members {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      border-radius: 8px; background: var(--brand-blue); color: #fff; font-size: 12.5px; font-weight: 700;
+      border: 1.5px solid #1e40af; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-manage-members:hover { background: var(--brand-blue-hover); }
+    .btn-view-members {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      border-radius: 8px; background: #f8fafc; color: var(--text-body); font-size: 12.5px; font-weight: 700;
+      border: 1.5px solid var(--border-card); cursor: pointer; transition: all 0.15s;
+    }
+    .btn-view-members:hover { background: #f1f5f9; }
+
+    .role-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+    .role-badge-pm { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .role-badge-contractor { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .role-badge-supervisor { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .role-badge-accountant { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+    .role-badge-client { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+    .role-badge-viewer { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .role-badge-admin { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    .btn-danger-sm {
+      padding: 5px 10px; border-radius: 6px; background: var(--danger-bg); border: 1px solid var(--danger-border);
+      color: var(--danger); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-danger-sm:hover { background: #fee2e2; }
+    .btn-edit-role-sm {
+      padding: 5px 10px; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border-card);
+      color: var(--text-body); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-edit-role-sm:hover { background: #f1f5f9; }
   </style>
 </head>
 <body>
@@ -861,6 +942,150 @@
       </div>
     </section>
 
+    <!-- DỰ ÁN & QUẢN LÝ THÀNH VIÊN BAN ĐIỀU HÀNH (S-28 / SCRUM-120) -->
+    <section class="panel-card" id="projects-section">
+      <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <div class="panel-header-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Dự án thi công & Quản lý thành viên (S-28)
+          </div>
+          <p>Danh sách các dự án bạn được phân quyền truy cập. Ban quản lý có quyền mời thành viên, gán vai trò và quản lý nhân sự.</p>
+        </div>
+        <div id="project-actions-top">
+          <button class="btn-health" style="padding: 7px 15px; font-size: 12.5px;" onclick="loadProjects()" title="Tải lại danh sách dự án">
+            🔄 Làm mới
+          </button>
+        </div>
+      </div>
+
+      <div style="padding: 24px;">
+        <div id="projects-loading" style="text-align: center; color: var(--text-muted); padding: 20px;">
+          Đang tải danh sách dự án...
+        </div>
+        <div id="projects-empty" style="display: none; text-align: center; color: var(--text-muted); padding: 30px; background: #f8fafc; border: 1.5px dashed var(--border-card); border-radius: 12px;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+          <strong>Chưa có dự án nào được gán cho bạn</strong>
+          <p style="font-size: 13px; margin-top: 4px;">Liên hệ Ban quản lý dự án để được mời vào dự án thi công.</p>
+        </div>
+        <div id="projects-grid" class="project-grid" style="display: none;">
+          <!-- Dynamic project cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- MODAL QUẢN LÝ THÀNH VIÊN DỰ ÁN (S-28 / SCRUM-120) -->
+    <div class="modal-overlay" id="modal-project-members">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>
+            <span>👥 Quản lý thành viên:</span>
+            <span id="modal-project-name" style="color: var(--brand-blue);">...</span>
+          </h3>
+          <button class="btn-close-modal" onclick="closeMembersModal()" title="Đóng cửa sổ">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div id="modal-alert" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px;"></div>
+
+          <div class="modal-tabs">
+            <button class="modal-tab-btn active" id="tab-btn-members" onclick="switchMemberTab('members')">
+              Thành viên hiện tại (<span id="modal-member-count">0</span>)
+            </button>
+            <button class="modal-tab-btn" id="tab-btn-invite" onclick="switchMemberTab('invite')">
+              + Mời / Thêm thành viên
+            </button>
+            <button class="modal-tab-btn" id="tab-btn-invitations" onclick="switchMemberTab('invitations')">
+              Lời mời đang chờ (<span id="modal-invite-count">0</span>)
+            </button>
+          </div>
+
+          <!-- Tab Content 1: Danh sách thành viên -->
+          <div id="tab-content-members">
+            <div class="table-wrap" style="max-height: 380px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 50px;">STT</th>
+                    <th>Họ và tên</th>
+                    <th>Email</th>
+                    <th>Vai trò dự án</th>
+                    <th>Ngày tham gia</th>
+                    <th style="text-align: right;">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-members-tbody">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 10px;">
+              🛡️ <strong>Chính sách NFR:</strong> Không được phép tự gỡ chính mình nếu bạn là Ban quản lý duy nhất còn lại của dự án.
+            </p>
+          </div>
+
+          <!-- Tab Content 2: Mời / Thêm thành viên -->
+          <div id="tab-content-invite" style="display: none;">
+            <div id="manager-invite-form-container">
+              <form id="form-add-member" onsubmit="handleAddMember(event)" style="display: flex; flex-direction: column; gap: 14px; background: #f8fafc; border: 1.5px solid var(--border-card); border-radius: 12px; padding: 18px;">
+                <div class="form-group">
+                  <label for="member-email" style="display: block; font-size: 12.5px; font-weight: 700; color: var(--text-title); margin-bottom: 6px;">Địa chỉ Email người nhận:</label>
+                  <input type="email" id="member-email" required placeholder="vidu: doitruong@thicong.vn" style="width: 100%; padding: 10px 14px; background: #fff; border: 1.5px solid var(--border-card); border-radius: 8px; font-size: 13.5px;">
+                </div>
+                <div class="form-group">
+                  <label for="member-role" style="display: block; font-size: 12.5px; font-weight: 700; color: var(--text-title); margin-bottom: 6px;">Gán vai trò trong dự án:</label>
+                  <select id="member-role" style="width: 100%; padding: 10px 14px; background: #fff; border: 1.5px solid var(--border-card); border-radius: 8px; font-size: 13.5px;">
+                    <option value="4" selected>Đội trưởng thi công (Contractor) - Mặc định AC 1</option>
+                    <option value="2">Chỉ huy trưởng / Ban quản lý (Project Manager)</option>
+                    <option value="3">Kỹ sư giám sát (Supervisor)</option>
+                    <option value="5">Kế toán & Quản lý vật tư (Accountant)</option>
+                    <option value="6">Chủ đầu tư (Client)</option>
+                    <option value="7">Người xem dự án (Viewer)</option>
+                  </select>
+                </div>
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
+                  ℹ️ <strong>Quy trình S-28:</strong><br>
+                  • <em>Đã có tài khoản:</em> Người dùng thấy dự án ngay lần tải trang tiếp theo.<br>
+                  • <em>Chưa có tài khoản:</em> Hệ thống tạo lời mời và tài khoản chờ, người dùng đặt mật khẩu ở lần đăng nhập đầu tiên.
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+                  <button type="submit" id="btn-submit-invite" class="btn-save" style="display: inline-flex; align-items: center; gap: 6px;">
+                    ✉️ Thêm vào dự án / Gửi lời mời
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Tab Content 3: Lời mời đang chờ -->
+          <div id="tab-content-invitations" style="display: none;">
+            <div class="table-wrap" style="max-height: 380px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 50px;">STT</th>
+                    <th>Email được mời</th>
+                    <th>Vai trò dự án</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày gửi</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-invitations-tbody">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeMembersModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 3 Metrics Card Viền Rõ Ràng -->
     <section class="metrics-grid">
       <div class="metric-card">
@@ -1046,12 +1271,329 @@
         const userName = userData.full_name || userData.fullName || userData.name || userData.email || 'Kỹ sư điều hành';
         const userRole = userData.role_display_name || userData.role_name || userData.role || 'Người dùng';
 
+        currentUserData = userData;
+
         document.getElementById('welcome-name').innerText = userName;
         document.getElementById('display-user-name').innerText = userName;
         document.getElementById('display-user-role').innerText = String(userRole);
         document.getElementById('avatar-letter').innerText = (userName.trim()[0] || 'U').toUpperCase();
+
+        await loadProjects();
       } catch (err) {
         console.error('Lỗi kiểm tra phiên làm việc:', err);
+      }
+    }
+
+    /* === S-28: QUẢN LÝ DỰ ÁN & THÀNH VIÊN === */
+    let currentProjects = [];
+    let activeProjectId = null;
+    let currentUserData = null;
+
+    function getRoleBadge(roleId, roleName) {
+      const id = Number(roleId);
+      switch(id) {
+        case 1: return `<span class="role-badge role-badge-admin">${roleName || 'Quản trị viên'}</span>`;
+        case 2: return `<span class="role-badge role-badge-pm">${roleName || 'Chỉ huy trưởng'}</span>`;
+        case 3: return `<span class="role-badge role-badge-supervisor">${roleName || 'Kỹ sư giám sát'}</span>`;
+        case 4: return `<span class="role-badge role-badge-contractor">${roleName || 'Đội trưởng thi công'}</span>`;
+        case 5: return `<span class="role-badge role-badge-accountant">${roleName || 'Kế toán'}</span>`;
+        case 6: return `<span class="role-badge role-badge-client">${roleName || 'Chủ đầu tư'}</span>`;
+        case 7: return `<span class="role-badge role-badge-viewer">${roleName || 'Người xem'}</span>`;
+        default: return `<span class="role-badge role-badge-viewer">${roleName || 'Thành viên'}</span>`;
+      }
+    }
+
+    async function loadProjects() {
+      const token = localStorage.getItem('quanly_token');
+      if (!token) return;
+
+      const loadingEl = document.getElementById('projects-loading');
+      const emptyEl = document.getElementById('projects-empty');
+      const gridEl = document.getElementById('projects-grid');
+
+      if (loadingEl) loadingEl.style.display = 'block';
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (gridEl) gridEl.style.display = 'none';
+
+      try {
+        const host = window.location.hostname || 'localhost';
+        const targets = ['/api/projects', `http://${host}:5000/api/projects`];
+        let projects = null;
+
+        for (const url of targets) {
+          try {
+            const res = await fetch(url, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && Array.isArray(data.projects)) {
+                projects = data.projects;
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        if (!projects || projects.length === 0) {
+          if (emptyEl) emptyEl.style.display = 'block';
+          currentProjects = [];
+          return;
+        }
+
+        currentProjects = projects;
+        if (gridEl) {
+          gridEl.innerHTML = '';
+          gridEl.style.display = 'grid';
+
+          const isGlobalAdminOrPM = currentUserData && (currentUserData.role_id === 1 || currentUserData.role_id === 2);
+
+          projects.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'project-card';
+            const statusText = p.status === 'completed' ? 'Hoàn thành' : 'Đang thi công';
+            const statusClass = p.status === 'completed' ? 'style="color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;"' : 'style="color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;"';
+
+            card.innerHTML = `
+              <div>
+                <div class="project-card-header">
+                  <span class="project-card-code">${p.code || 'DA-' + p.id}</span>
+                  <span class="role-badge" ${statusClass}>${statusText}</span>
+                </div>
+                <div class="project-card-name">${p.name || 'Dự án #' + p.id}</div>
+                <div class="project-card-desc" style="margin-top:6px;">${p.description || 'Chưa có mô tả chi tiết công trình.'}</div>
+              </div>
+              <div class="project-card-footer">
+                <a href="/wbs.html?project=${p.id}" class="hub-link-text" style="text-decoration:none;" title="Xem WBS & Tiến độ">
+                  Mở công trình ➔
+                </a>
+                <button class="${isGlobalAdminOrPM ? 'btn-manage-members' : 'btn-view-members'}" onclick="openMembersModal(${p.id}, '${(p.name || '').replace(/'/g, "\\'")}')" title="Quản lý thành viên & phân quyền">
+                  👥 ${isGlobalAdminOrPM ? 'Quản lý thành viên' : 'Xem thành viên'}
+                </button>
+              </div>
+            `;
+            gridEl.appendChild(card);
+          });
+        }
+      } catch (err) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        console.error('Lỗi khi tải danh sách dự án:', err);
+      }
+    }
+
+    function switchMemberTab(tabName) {
+      document.getElementById('tab-btn-members').classList.toggle('active', tabName === 'members');
+      document.getElementById('tab-btn-invite').classList.toggle('active', tabName === 'invite');
+      document.getElementById('tab-btn-invitations').classList.toggle('active', tabName === 'invitations');
+
+      document.getElementById('tab-content-members').style.display = tabName === 'members' ? 'block' : 'none';
+      document.getElementById('tab-content-invite').style.display = tabName === 'invite' ? 'block' : 'none';
+      document.getElementById('tab-content-invitations').style.display = tabName === 'invitations' ? 'block' : 'none';
+      hideModalAlert();
+    }
+
+    function showModalAlert(message, isError) {
+      const alertEl = document.getElementById('modal-alert');
+      if (!alertEl) return;
+      alertEl.style.display = 'block';
+      alertEl.style.background = isError ? '#fee2e2' : '#ecfdf5';
+      alertEl.style.border = isError ? '1.5px solid #f87171' : '1.5px solid #a7f3d0';
+      alertEl.style.color = isError ? '#dc2626' : '#059669';
+      alertEl.innerHTML = message;
+    }
+
+    function hideModalAlert() {
+      const alertEl = document.getElementById('modal-alert');
+      if (alertEl) alertEl.style.display = 'none';
+    }
+
+    async function openMembersModal(projectId, projectName) {
+      activeProjectId = projectId;
+      document.getElementById('modal-project-name').innerText = projectName || ('Dự án #' + projectId);
+      document.getElementById('modal-project-members').style.display = 'flex';
+      hideModalAlert();
+      switchMemberTab('members');
+      await Promise.all([loadMembers(projectId), loadInvitations(projectId)]);
+    }
+
+    function closeMembersModal() {
+      document.getElementById('modal-project-members').style.display = 'none';
+      activeProjectId = null;
+      hideModalAlert();
+    }
+
+    async function loadMembers(projectId) {
+      const token = localStorage.getItem('quanly_token');
+      const tbody = document.getElementById('modal-members-tbody');
+      const countEl = document.getElementById('modal-member-count');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Đang tải thành viên...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/members`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const members = data.members || [];
+          countEl.innerText = members.length;
+
+          if (members.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Chưa có thành viên nào.</td></tr>';
+            return;
+          }
+
+          const isManager = currentUserData && (currentUserData.role_id === 1 || currentUserData.role_id === 2);
+
+          tbody.innerHTML = members.map((m, idx) => {
+            const joinDate = m.joined_at ? new Date(m.joined_at).toLocaleDateString('vi-VN') : 'Mặc định';
+            const roleBadge = getRoleBadge(m.role_id, m.role_name);
+            const removeBtn = isManager ? `
+              <button class="btn-danger-sm" onclick="handleRemoveMember(${m.user_id}, '${(m.full_name || '').replace(/'/g, "\\'")}', '${m.email}')" title="Gỡ thành viên khỏi dự án">
+                ✕ Gỡ
+              </button>
+            ` : '<span style="color:var(--text-dim);font-size:12px;">Chỉ xem</span>';
+
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td style="font-weight:700;">${m.full_name || 'Người dùng #' + m.user_id}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">${m.email}</td>
+                <td>${roleBadge}</td>
+                <td style="color:var(--text-muted);font-size:12.5px;">${joinDate}</td>
+                <td style="text-align:right;">${removeBtn}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);">Không thể tải danh sách thành viên.</td></tr>';
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);">Lỗi kết nối khi tải thành viên.</td></tr>';
+      }
+    }
+
+    async function loadInvitations(projectId) {
+      const token = localStorage.getItem('quanly_token');
+      const tbody = document.getElementById('modal-invitations-tbody');
+      const countEl = document.getElementById('modal-invite-count');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Đang tải lời mời...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/invitations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const invites = data.invitations || [];
+          countEl.innerText = invites.length;
+
+          if (invites.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Không có lời mời nào đang chờ.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = invites.map((inv, idx) => {
+            const sendDate = inv.created_at ? new Date(inv.created_at).toLocaleDateString('vi-VN') : '-';
+            const roleBadge = getRoleBadge(inv.role_id, inv.role_name);
+            const statusBadge = inv.status === 'accepted' ? '<span class="role-badge" style="background:#ecfdf5;color:#059669;">Đã chấp nhận</span>' : '<span class="role-badge" style="background:#fffbeb;color:#b45309;">Đang chờ kích hoạt</span>';
+
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">${inv.email}</td>
+                <td>${roleBadge}</td>
+                <td>${statusBadge}</td>
+                <td style="color:var(--text-muted);font-size:12.5px;">${sendDate}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">-</td></tr>';
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">-</td></tr>';
+      }
+    }
+
+    async function handleAddMember(e) {
+      e.preventDefault();
+      if (!activeProjectId) return;
+
+      const email = document.getElementById('member-email').value.trim();
+      const role_id = Number(document.getElementById('member-role').value);
+      const btn = document.getElementById('btn-submit-invite');
+
+      if (!email) return;
+
+      btn.disabled = true;
+      btn.innerText = 'Đang xử lý...';
+      hideModalAlert();
+
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const res = await fetch(`/api/projects/${activeProjectId}/members`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ email, role_id })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          document.getElementById('member-email').value = '';
+          const msg = data.invited
+            ? `✅ Đã tạo lời mời cho <strong>${email}</strong>! Người dùng sẽ đặt mật khẩu ở lần đăng nhập đầu tiên.`
+            : `✅ Đã thêm <strong>${email}</strong> vào dự án thành công với vai trò được chọn!`;
+          showModalAlert(msg, false);
+          await Promise.all([loadMembers(activeProjectId), loadInvitations(activeProjectId)]);
+        } else {
+          showModalAlert(`⚠️ ${data.error || 'Không thể thêm hoặc mời thành viên.'}`, true);
+        }
+      } catch (err) {
+        showModalAlert('⚠️ Lỗi kết nối khi gửi yêu cầu.', true);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '✉️ Thêm vào dự án / Gửi lời mời';
+      }
+    }
+
+    async function handleRemoveMember(userId, userName, email) {
+      if (!activeProjectId) return;
+      const displayName = userName || email || ('ID: ' + userId);
+      const isConfirmed = confirm(
+        `Bạn có chắc chắn muốn gỡ thành viên "${displayName}" khỏi dự án này?\n\n` +
+        `Lưu ý: Thao tác này sẽ thu hồi quyền truy cập của họ vào dự án này, nhưng nhật ký thao tác và dữ liệu đã tạo trước đó vẫn được giữ nguyên vẹn.`
+      );
+
+      if (!isConfirmed) return;
+
+      hideModalAlert();
+
+      try {
+        const token = localStorage.getItem('quanly_token');
+        const res = await fetch(`/api/projects/${activeProjectId}/members/${userId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showModalAlert(`✅ Đã gỡ thành viên "${displayName}" khỏi dự án.`, false);
+          await loadMembers(activeProjectId);
+          if (currentUserData && Number(currentUserData.id) === Number(userId)) {
+            await loadProjects();
+          }
+        } else {
+          showModalAlert(`⚠️ ${data.error || 'Không thể gỡ thành viên.'}`, true);
+        }
+      } catch (err) {
+        showModalAlert('⚠️ Lỗi kết nối khi gỡ thành viên.', true);
       }
     }
 

@@ -77,6 +77,10 @@ app.get('/api/auth/roles', authController.getRoles);
 // Mở khóa nhanh tài khoản (dành cho test/dev)
 app.post('/api/auth/unlock-dev', authController.unlockDev);
 
+// Thiết lập mật khẩu lần đầu cho người được mời (S-28 / AC 2)
+app.post('/api/auth/first-login', authController.firstLogin);
+app.post('/api/auth/set-first-password', authController.firstLogin);
+
 // Điều hướng trang mặc định
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/login.html'));

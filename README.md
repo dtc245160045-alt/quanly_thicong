@@ -390,3 +390,50 @@ npm test
    ```
    * Mở trình duyệt truy cập: [http://localhost:5000/calendar.html](http://localhost:5000/calendar.html)
 
+---
+
+## 🏗️ Sprint 4 Epic `E-02`: [S-28] SCRUM-120: Ban quản lý mời thành viên vào dự án và gán vai trò
+
+> **User Story:** Là ban quản lý dự án tôi muốn thêm người vào dự án và gán vai trò cho họ để đội mới nhận việc không phải nhờ người quản trị hệ thống can thiệp.  
+> **Phụ thuộc:** `S-03` | **Story Points:** 2 SP | **Sprint:** 4
+
+### 1. Bảng Tiêu Chí Chấp Nhận & Kết Quả Triển Khai
+
+| Tiêu chí | Mô tả yêu cầu (Acceptance Criteria) | Giải pháp kỹ thuật trong hệ thống | Kết quả kiểm thử |
+| :---: | :--- | :--- | :---: |
+| **AC 1** | Người đã có tài khoản: Khi thêm vào dự án với vai trò đội trưởng, họ thấy dự án ngay lần tải trang kế tiếp. | API `POST /api/projects/:id/members` gán `role_id: 4` (Đội trưởng). API `GET /api/projects` kiểm tra quyền qua `canUserAccessProject` và trả dự án ngay lập tức. | ✅ **ĐẠT (100%)** |
+| **AC 2** | Người chưa có tài khoản: Nhập email thì hệ thống tạo lời mời và người đó đặt mật khẩu ở lần đăng nhập đầu. | Tạo bản ghi `project_invitations` và tài khoản `users` với cờ `must_set_password = 1`. Khi đăng nhập lần đầu (`POST /api/auth/login` hoặc `/api/auth/first-login`), hệ thống kiểm tra mật khẩu >= 6 ký tự, băm PBKDF2, xóa cờ và kích hoạt tài khoản. | ✅ **ĐẠT (100%)** |
+| **AC 3** | Gỡ người khỏi dự án: Khi gọi API dự án đó thì bị từ chối (403), nhưng dữ liệu/nhật ký thao tác cũ vẫn còn. | API `DELETE /api/projects/:id/members/:userId` xóa quyền trong `project_members`, không xóa tài khoản hay cascade xóa nhật ký/công việc. Mọi route `/api/projects/:id/...` trả 403 Forbidden ngay lập tức. | ✅ **ĐẠT (100%)** |
+| **NFR** | Không được tự gỡ chính mình nếu là ban quản lý cuối cùng của dự án. | Đếm số lượng PM (`role_id: 2`) trong dự án kèm khóa dòng `FOR UPDATE` trong MySQL transaction để chống race condition. Nếu còn <= 1 PM thì chặn với mã `HTTP 400 Bad Request`. | ✅ **ĐẠT (100%)** |
+
+### 2. Danh Sách API Thành Viên & Lời Mời Dự Án (S-28)
+
+| Phương thức | Đường dẫn API | Quyền hạn | Mô tả chức năng |
+| :---: | :--- | :---: | :--- |
+| `GET` | `/api/projects` | Đã đăng nhập | Lấy danh sách dự án mà user được phép truy cập. |
+| `GET` | `/api/projects/:id/members` | Thành viên dự án | Xem danh sách thành viên dự án và vai trò được gán. |
+| `POST` | `/api/projects/:id/members` | PM dự án / Admin | Thêm user đã có hoặc tạo lời mời cho email mới vào dự án. |
+| `POST` | `/api/projects/:id/invitations` | PM dự án / Admin | Tạo lời mời thành viên dự án kèm vai trò (chặn gán quyền admin). |
+| `GET` | `/api/projects/:id/invitations` | PM dự án / Admin | Lấy danh sách lời mời đang chờ của dự án. |
+| `PUT` | `/api/projects/:id/members/:userId` | PM dự án / Admin | Cập nhật vai trò thành viên (chặn giáng cấp PM cuối cùng). |
+| `DELETE` | `/api/projects/:id/members/:userId` | PM dự án / Admin | Gỡ thành viên khỏi dự án (bảo vệ PM cuối cùng, giữ nhật ký). |
+| `POST` | `/api/auth/first-login` | Mọi người | Đăng nhập lần đầu và đặt mật khẩu kích hoạt tài khoản được mời. |
+| `POST` | `/api/auth/set-first-password` | Mọi người | Thiết lập mật khẩu ban đầu cho tài khoản được mời. |
+
+### 3. CSDL & Migrations
+
+* `migration_s28_project_members.sql`: Bổ sung cột `role_id` vào `project_members`, cột `must_set_password` vào `users`, tạo bảng `project_invitations` và nạp quyền ban đầu cho dự án 1.
+* `migration_s28_project_members_down.sql`: Rollback an toàn cho schema S-28.
+* `backend/db.js`: Tự động đồng bộ schema khi máy chủ khởi động.
+
+### 4. Lưu Ý Cấu Hình Gửi Email (SMTP)
+
+* Repository hiện tại **chưa tích hợp dịch vụ gửi mail bên thứ ba** (không có `nodemailer`).
+* Hệ thống lưu trữ lời mời minh bạch trong bảng `project_invitations` với trạng thái `pending`.
+* Người được mời có thể truy cập trang đăng nhập `/login.html`, nhập email đã nhận lời mời và đặt mật khẩu mới (tối thiểu 6 ký tự) để tự động kích hoạt tài khoản và tham gia dự án.
+* **Cấu hình môi trường bổ sung khi triển khai SMTP (Production):**
+  * `SMTP_HOST`: Địa chỉ máy chủ SMTP (ví dụ: `smtp.gmail.com`).
+  * `SMTP_PORT`: Cổng kết nối (ví dụ: `587` hoặc `465`).
+  * `SMTP_USER`: Tài khoản email gửi thư.
+  * `SMTP_PASS`: Mật khẩu ứng dụng (App Password).
+

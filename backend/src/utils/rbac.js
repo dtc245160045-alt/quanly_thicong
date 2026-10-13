@@ -1,4 +1,4 @@
-const { getSession, canUserAccessProject } = require('../models/store');
+const { getSession, canUserAccessProject, isUserProjectManager } = require('../models/store');
 
 /**
  * Middleware trích xuất và xác thực token phiên đăng nhập (nếu có)
@@ -104,9 +104,53 @@ function checkProjectReadAccess(req, res, projectId) {
   return false;
 }
 
+/**
+ * Kiểm tra quyền quản lý dự án (Chỉ Admin hoặc Ban quản lý/Chỉ huy trưởng của dự án mới được thực hiện)
+ * S-28: Người không có quyền quản lý gọi API mời, đổi vai trò hoặc gỡ -> 403
+ * Chưa đăng nhập -> 401
+ */
+function checkProjectManagerAccess(req, res, projectId) {
+  const authHeader = req.headers?.['authorization'] || req.headers?.['Authorization'];
+  const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : (req.query?.token || null);
+
+  let user = req.user;
+  if (token) {
+    const session = getSession(token);
+    if (!session) {
+      res.status(401).json({
+        success: false,
+        message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.'
+      });
+      return true;
+    }
+    user = session;
+    req.user = session;
+  }
+
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      message: 'Yêu cầu xác thực: Vui lòng đăng nhập để tiếp tục.'
+    });
+    return true;
+  }
+
+  if (!isUserProjectManager(user, projectId)) {
+    res.status(403).json({
+      success: false,
+      message: 'Quyền truy cập bị từ chối: Bạn không có quyền quản lý thành viên dự án này.'
+    });
+    return true;
+  }
+
+  return false;
+}
+
 module.exports = {
   authenticate,
   requireAuth,
   checkViewerForbidden,
-  checkProjectReadAccess
+  checkProjectReadAccess,
+  checkProjectManagerAccess,
+  isUserProjectManager
 };

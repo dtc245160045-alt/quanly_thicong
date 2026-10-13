@@ -70,19 +70,195 @@ userProjectAssignments.set(1, new Set(['*'])); // admin toàn quyền
 userProjectAssignments.set(2, new Set([1]));   // PM dự án 1
 userProjectAssignments.set(3, new Set([1]));   // Viewer dự án 1 (được cấp quyền xem dự án 1)
 
+// Bảng thành viên dự án in-memory
+let inMemoryProjectMembers = [
+  { project_id: 1, user_id: 1, role_id: 1, role_name: 'admin', role_display_name: 'Quản trị viên hệ thống', created_at: '2026-10-01 08:00:00' },
+  { project_id: 1, user_id: 2, role_id: 2, role_name: 'project_manager', role_display_name: 'Chỉ huy trưởng công trình', created_at: '2026-10-01 08:00:00' },
+  { project_id: 1, user_id: 3, role_id: 7, role_name: 'viewer', role_display_name: 'Người xem dự án', created_at: '2026-10-01 08:00:00' }
+];
+
+// Danh sách lời mời tham gia dự án in-memory
+let inMemoryProjectInvitations = [];
+
+function getProjectMembers(projectId) {
+  const pId = Number(projectId);
+  return inMemoryProjectMembers
+    .filter(m => m.project_id === pId)
+    .map(m => {
+      const u = inMemoryUsers.find(user => user.id === m.user_id) || {};
+      const role = SEED_ROLES.find(r => r.id === m.role_id) || {};
+      return {
+        project_id: m.project_id,
+        user_id: m.user_id,
+        email: u.email || '',
+        full_name: u.full_name || '',
+        role_id: m.role_id,
+        role_name: role.name || m.role_name || '',
+        role_display_name: role.display_name || m.role_display_name || '',
+        created_at: m.created_at || new Date().toISOString()
+      };
+    });
+}
+
+function findProjectMember(projectId, userId) {
+  const pId = Number(projectId);
+  const uId = Number(userId);
+  return inMemoryProjectMembers.find(m => m.project_id === pId && m.user_id === uId) || null;
+}
+
+function countProjectManagers(projectId) {
+  const pId = Number(projectId);
+  return inMemoryProjectMembers.filter(m => m.project_id === pId && (m.role_id === 2 || m.role_name === 'project_manager')).length;
+}
+
+function addProjectMember({ projectId, userId, roleId }) {
+  const pId = Number(projectId);
+  const uId = Number(userId);
+  const rId = Number(roleId) || 4;
+  const role = SEED_ROLES.find(r => r.id === rId) || { id: 4, name: 'contractor', display_name: 'Đội trưởng thi công' };
+
+  const existing = findProjectMember(pId, uId);
+  if (existing) {
+    existing.role_id = rId;
+    existing.role_name = role.name;
+    existing.role_display_name = role.display_name;
+    return existing;
+  }
+
+  const member = {
+    project_id: pId,
+    user_id: uId,
+    role_id: rId,
+    role_name: role.name,
+    role_display_name: role.display_name,
+    created_at: new Date().toISOString()
+  };
+  inMemoryProjectMembers.push(member);
+
+  let assigned = userProjectAssignments.get(uId);
+  if (!assigned) {
+    assigned = new Set();
+    userProjectAssignments.set(uId, assigned);
+  }
+  assigned.add(pId);
+
+  return member;
+}
+
+function updateProjectMemberRole({ projectId, userId, roleId }) {
+  const member = findProjectMember(projectId, userId);
+  if (!member) return null;
+  const rId = Number(roleId);
+  const role = SEED_ROLES.find(r => r.id === rId) || { id: rId, name: 'member', display_name: 'Thành viên' };
+  member.role_id = rId;
+  member.role_name = role.name;
+  member.role_display_name = role.display_name;
+  return member;
+}
+
+function removeProjectMember({ projectId, userId }) {
+  const pId = Number(projectId);
+  const uId = Number(userId);
+  const idx = inMemoryProjectMembers.findIndex(m => m.project_id === pId && m.user_id === uId);
+  if (idx === -1) return false;
+  inMemoryProjectMembers.splice(idx, 1);
+
+  const assigned = userProjectAssignments.get(uId);
+  if (assigned) {
+    assigned.delete(pId);
+  }
+  return true;
+}
+
+function getProjectInvitations(projectId) {
+  const pId = Number(projectId);
+  return inMemoryProjectInvitations.filter(i => i.project_id === pId && i.status === 'pending');
+}
+
+function findPendingInvitation(email, projectId = null) {
+  if (!email) return null;
+  const clean = email.trim().toLowerCase();
+  return inMemoryProjectInvitations.find(i => 
+    i.email.toLowerCase() === clean && 
+    i.status === 'pending' &&
+    (!projectId || i.project_id === Number(projectId))
+  ) || null;
+}
+
+function createProjectInvitation({ projectId, email, roleId, invitedBy, token = null }) {
+  const pId = Number(projectId);
+  const clean = email.trim().toLowerCase();
+  const rId = Number(roleId) || 4;
+  const newId = inMemoryProjectInvitations.length > 0 ? Math.max(...inMemoryProjectInvitations.map(i => i.id)) + 1 : 1;
+
+  const inv = {
+    id: newId,
+    project_id: pId,
+    email: clean,
+    role_id: rId,
+    invited_by: invitedBy ? Number(invitedBy) : null,
+    status: 'pending',
+    token: token || null,
+    created_at: new Date().toISOString()
+  };
+  inMemoryProjectInvitations.push(inv);
+  return inv;
+}
+
+function acceptProjectInvitation(email, userId) {
+  if (!email) return [];
+  const clean = email.trim().toLowerCase();
+  const accepted = [];
+  for (const inv of inMemoryProjectInvitations) {
+    if (inv.email.toLowerCase() === clean && inv.status === 'pending') {
+      inv.status = 'accepted';
+      addProjectMember({
+        projectId: inv.project_id,
+        userId,
+        roleId: inv.role_id
+      });
+      accepted.push(inv);
+    }
+  }
+  return accepted;
+}
+
+function isUserProjectManager(user, projectId) {
+  if (!user) return false;
+  if (user.role_name === 'admin' || user.role_id === 1) return true;
+  const pId = Number(projectId);
+  const uId = user.id || user.userId;
+  const member = findProjectMember(pId, uId);
+  if (member && (member.role_id === 2 || member.role_name === 'project_manager')) {
+    return true;
+  }
+  if (user.role_name === 'project_manager' || user.role_id === 2) {
+    const assigned = userProjectAssignments.get(uId);
+    if (assigned && (assigned.has('*') || assigned.has(pId))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function canUserAccessProject(user, projectId) {
   if (!user) return false;
   // Admin được toàn quyền xem tất cả dự án
   if (user.role_name === 'admin' || user.role_id === 1) return true;
-  // Project Manager được truy cập các dự án thi công
-  if (user.role_name === 'project_manager' || user.role_id === 2) return true;
-  // Viewer chỉ xem dự án được gán quyền
   const pId = Number(projectId);
   const uId = user.id || user.userId;
+
+  // Kiểm tra bảng gán quyền userProjectAssignments
   const assigned = userProjectAssignments.get(uId);
   if (assigned) {
     if (assigned.has('*') || assigned.has(pId)) return true;
   }
+
+  // Kiểm tra bảng thành viên inMemoryProjectMembers
+  if (inMemoryProjectMembers.some(m => m.project_id === pId && m.user_id === uId)) {
+    return true;
+  }
+
   // Mặc định cho demo viewer nếu tài khoản là viewer@thicong.vn thì gán dự án 1
   if ((user.role_name === 'viewer' || user.role_id === 7) && pId === 1) {
     return true;
@@ -157,14 +333,15 @@ function createUser(userData) {
   const newUser = {
     id: newId,
     email: userData.email.trim().toLowerCase(),
-    password_hash: userData.password_hash,
-    salt: userData.salt,
-    full_name: userData.full_name.trim(),
+    password_hash: userData.password_hash || '',
+    salt: userData.salt || '',
+    full_name: (userData.full_name || userData.email.split('@')[0]).trim(),
     role_id: role.id,
     role_name: role.name,
     role_display_name: role.display_name,
     failed_login_attempts: 0,
     locked_until: null,
+    must_set_password: Boolean(userData.must_set_password),
     is_active: true
   };
   inMemoryUsers.push(newUser);
@@ -860,6 +1037,19 @@ module.exports = {
   updateTeamData,
   deleteTeamData,
   assignTaskToTeamData,
-  unassignTaskData
+  unassignTaskData,
+  inMemoryProjectMembers,
+  inMemoryProjectInvitations,
+  getProjectMembers,
+  findProjectMember,
+  countProjectManagers,
+  addProjectMember,
+  updateProjectMemberRole,
+  removeProjectMember,
+  getProjectInvitations,
+  findPendingInvitation,
+  createProjectInvitation,
+  acceptProjectInvitation,
+  isUserProjectManager
 };
 

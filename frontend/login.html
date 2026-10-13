@@ -391,6 +391,16 @@
           return;
         }
 
+        if (data && (data.must_set_password || (data.error && data.error.includes('mật khẩu mới')))) {
+          const warnAlert = document.getElementById('alert-warning');
+          warnAlert.style.display = 'block';
+          document.getElementById('warn-title').innerText = 'Kích hoạt tài khoản lần đầu (S-28)';
+          document.getElementById('warn-desc').innerText = data.error || 'Tài khoản của bạn đã được mời vào dự án. Vui lòng nhập mật khẩu mới (tối thiểu 6 ký tự) để kích hoạt và đăng nhập.';
+          btn.disabled = false;
+          btn.innerText = 'Kích hoạt & Đăng nhập';
+          return;
+        }
+
         localFailedAttempts++;
 
         if (res.status === 423 || data.locked || localFailedAttempts >= 5) {
