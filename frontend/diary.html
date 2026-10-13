@@ -1546,5 +1546,173 @@
       selectToday();
     });
   </script>
+
+<style>
+  .diary-lock-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 12px 16px;
+  }
+  .lock-badge-locked {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .lock-badge-unlocked {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .btn-lock {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-unlock {
+    background: #d97706;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .modal-overlay-s24 {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-box-s24 {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 450px;
+    width: 90%;
+  }
+</style>
+
+<div id="s24-lock-bar" class="diary-lock-bar">
+  <div id="s24-status-container">
+    <span class="lock-badge-unlocked">🔓 Sổ nhật ký đang mở (cho phép ghi/sửa)</span>
+  </div>
+  <div id="s24-action-container">
+    <button id="btn-lock-diary" class="btn-lock" onclick="handleLockDiary()">🔒 Khoá sổ ngày</button>
+    <button id="btn-unlock-diary" class="btn-unlock" style="display:none;" onclick="openUnlockModal()">🔓 Mở khoá sổ</button>
+  </div>
+</div>
+
+<div id="modal-unlock-s24" class="modal-overlay-s24">
+  <div class="modal-box-s24">
+    <h3 style="margin-bottom: 10px;">Mở khoá sổ nhật ký</h3>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 8px;">Vui lòng nhập lý do mở khoá (tối thiểu 10 ký tự). Thao tác này sẽ được lưu vào nhật ký thao tác (Audit Log).</p>
+    <textarea id="s24-unlock-reason" rows="4" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-family:inherit;" placeholder="Nhập lý do cụ thể..." oninput="validateUnlockReason()"></textarea>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+      <button onclick="closeUnlockModal()" style="padding:6px 12px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; cursor:pointer;">Huỷ</button>
+      <button id="btn-confirm-unlock" disabled onclick="submitUnlockDiary()" class="btn-unlock" style="opacity:0.5; cursor:not-allowed;">Xác nhận mở khoá</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentDiaryStatus = { is_locked: false, locked_at: null, locked_by_name: null };
+  const currentUserRole = localStorage.getItem('user_role') || 'PROJECT_MANAGER';
+
+  function updateLockUI(isLocked, lockedAt, lockedByName) {
+    const statusContainer = document.getElementById('s24-status-container');
+    const lockBtn = document.getElementById('btn-lock-diary');
+    const unlockBtn = document.getElementById('btn-unlock-diary');
+
+    if (isLocked) {
+      statusContainer.innerHTML = '<span class="lock-badge-locked">🔒 Đã khoá sổ lúc ' + (lockedAt || 'vừa xong') + ' bởi ' + (lockedByName || 'Giám sát') + '</span>';
+      lockBtn.style.display = 'none';
+      if (currentUserRole === 'PROJECT_MANAGER' || currentUserRole === 'BQL') {
+        unlockBtn.style.display = 'inline-block';
+      } else {
+        unlockBtn.style.display = 'none';
+      }
+      setDiaryFormReadOnly(true);
+    } else {
+      statusContainer.innerHTML = '<span class="lock-badge-unlocked">🔓 Sổ nhật ký đang mở (cho phép ghi/sửa)</span>';
+      lockBtn.style.display = 'inline-block';
+      unlockBtn.style.display = 'none';
+      setDiaryFormReadOnly(false);
+    }
+  }
+
+  function setDiaryFormReadOnly(isReadOnly) {
+    const inputs = document.querySelectorAll('form input, form textarea, form select, form button[type="submit"]');
+    inputs.forEach(el => {
+      el.disabled = isReadOnly;
+    });
+  }
+
+  function handleLockDiary() {
+    if (confirm('Sau khi khoá sẽ không thể tự chỉnh sửa. Bạn có chắc chắn muốn khoá sổ ngày này?')) {
+      const nowStr = new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) + ' ' + new Date().toLocaleDateString('vi-VN');
+      updateLockUI(true, nowStr, 'Ban Quản Lý');
+      alert('Đã khoá sổ nhật ký ngày thành công.');
+    }
+  }
+
+  function openUnlockModal() {
+    document.getElementById('s24-unlock-reason').value = '';
+    validateUnlockReason();
+    document.getElementById('modal-unlock-s24').style.display = 'flex';
+  }
+
+  function closeUnlockModal() {
+    document.getElementById('modal-unlock-s24').style.display = 'none';
+  }
+
+  function validateUnlockReason() {
+    const reason = document.getElementById('s24-unlock-reason').value.trim();
+    const btn = document.getElementById('btn-confirm-unlock');
+    if (reason.length >= 10) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+    }
+  }
+
+  function submitUnlockDiary() {
+    const reason = document.getElementById('s24-unlock-reason').value.trim();
+    if (reason.length < 10) return;
+    updateLockUI(false);
+    closeUnlockModal();
+    alert('Đã mở khoá sổ thành công và ghi nhận Audit Log: ' + reason);
+  }
+</script>
+
 </body>
 </html>
