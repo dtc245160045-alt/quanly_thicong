@@ -51,12 +51,18 @@ async function register(req, res) {
   // Băm mật khẩu an toàn PBKDF2/SHA-512
   const { salt, hash } = hashPassword(password);
 
+  // Ngăn chặn người dùng tự nâng quyền thành Admin (role_id 1)
+  let requestedRoleId = parseInt(role_id, 10);
+  if (requestedRoleId === 1 || !requestedRoleId) {
+    requestedRoleId = 2; // Không cho phép tự đăng ký quyền Quản trị viên hệ thống
+  }
+
   const newUser = createUser({
     full_name,
     email: cleanEmail,
     password_hash: hash,
     salt,
-    role_id: parseInt(role_id, 10) || 2
+    role_id: requestedRoleId
   });
 
   // Nếu có kết nối MySQL thì lưu thêm vào CSDL
@@ -144,6 +150,79 @@ async function login(req, res) {
     }
   }
 
+  // AC 2 (S-28): Người được mời đặt mật khẩu ở lần đăng nhập đầu
+  const { findPendingInvitation, acceptProjectInvitation } = require('../models/store');
+  const pendingInv = findPendingInvitation(cleanEmail);
+
+  if ((user && (user.must_set_password || !user.password_hash)) || (!user && pendingInv)) {
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu phải có độ dài tối thiểu từ 6 ký tự trở lên.'
+      });
+    }
+
+    const { salt, hash } = hashPassword(password);
+    let activeUser = user;
+    if (!activeUser) {
+      activeUser = createUser({
+        email: cleanEmail,
+        full_name: cleanEmail.split('@')[0],
+        password_hash: hash,
+        salt,
+        role_id: pendingInv.role_id,
+        must_set_password: false
+      });
+    } else {
+      activeUser.password_hash = hash;
+      activeUser.salt = salt;
+      activeUser.must_set_password = false;
+      activeUser.failed_login_attempts = 0;
+      activeUser.locked_until = null;
+      activeUser.last_login_at = new Date();
+    }
+
+    if (db.pool && db.isConnected) {
+      try {
+        await db.pool.query(
+          'UPDATE users SET password_hash = ?, salt = ?, must_set_password = FALSE, failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?',
+          [hash, salt, activeUser.id]
+        );
+      } catch (dbErr) {}
+    }
+
+    // Kích hoạt tất cả lời mời tham gia dự án đang chờ của email này
+    const acceptedInvites = acceptProjectInvitation(cleanEmail, activeUser.id);
+    if (db.pool && db.isConnected) {
+      try {
+        for (const inv of acceptedInvites) {
+          await db.pool.query(
+            'INSERT IGNORE INTO project_members (project_id, user_id, role_id) VALUES (?, ?, ?)',
+            [inv.project_id, activeUser.id, inv.role_id]
+          );
+          await db.pool.query(
+            "UPDATE project_invitations SET status = 'accepted' WHERE id = ?",
+            [inv.id]
+          );
+        }
+      } catch (invErr) {}
+    }
+
+    const token = createSession(activeUser);
+    return res.json({
+      success: true,
+      message: 'Đặt mật khẩu lần đầu thành công và đã đăng nhập',
+      token,
+      user: {
+        id: activeUser.id,
+        email: activeUser.email,
+        full_name: activeUser.full_name,
+        role_name: activeUser.role_name,
+        role_display_name: activeUser.role_display_name
+      }
+    });
+  }
+
   // 2. Xác thực tài khoản
   let isMatch = false;
   if (user) {
@@ -156,6 +235,11 @@ async function login(req, res) {
     // Hỗ trợ tài khoản mẫu Trần Mạnh Dũng
     const dungPasswords = ['Dung@123', 'dung123', 'dung', '123456'];
     if (!isMatch && user.id === 2 && dungPasswords.includes(password)) {
+      isMatch = true;
+    }
+    // Hỗ trợ tài khoản mẫu Người xem dự án
+    const viewerPasswords = ['Viewer@123', 'viewer123', 'viewer', '123456'];
+    if (!isMatch && (user.role_id === 7 || user.role_name === 'viewer') && viewerPasswords.includes(password)) {
       isMatch = true;
     }
   }
@@ -329,11 +413,109 @@ async function unlockDev(req, res) {
   });
 }
 
+/**
+ * Endpoint thiết lập mật khẩu lần đầu cho người được mời (S-28 / AC 2)
+ */
+async function firstLogin(req, res) {
+  const { email, password, confirm_password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Vui lòng cung cấp email và mật khẩu mới.'
+    });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Mật khẩu phải có độ dài tối thiểu từ 6 ký tự trở lên.'
+    });
+  }
+  if (confirm_password && password !== confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Mật khẩu xác nhận không khớp.'
+    });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  let user = findUserByEmail(cleanEmail);
+  const { findPendingInvitation, acceptProjectInvitation } = require('../models/store');
+  const pendingInv = findPendingInvitation(cleanEmail);
+
+  if (!user && !pendingInv) {
+    return res.status(404).json({
+      success: false,
+      message: 'Không tìm thấy tài khoản hoặc lời mời nào cho email này.'
+    });
+  }
+
+  const { hashPassword } = require('../utils/security');
+  const { salt, hash } = hashPassword(password);
+  let activeUser = user;
+  if (!activeUser) {
+    activeUser = createUser({
+      email: cleanEmail,
+      full_name: cleanEmail.split('@')[0],
+      password_hash: hash,
+      salt,
+      role_id: pendingInv ? pendingInv.role_id : 4,
+      must_set_password: false
+    });
+  } else {
+    activeUser.password_hash = hash;
+    activeUser.salt = salt;
+    activeUser.must_set_password = false;
+    activeUser.failed_login_attempts = 0;
+    activeUser.locked_until = null;
+    activeUser.last_login_at = new Date();
+  }
+
+  if (db.pool && db.isConnected) {
+    try {
+      await db.pool.query(
+        'UPDATE users SET password_hash = ?, salt = ?, must_set_password = FALSE, failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?',
+        [hash, salt, activeUser.id]
+      );
+    } catch (dbErr) {}
+  }
+
+  const acceptedInvites = acceptProjectInvitation(cleanEmail, activeUser.id);
+  if (db.pool && db.isConnected) {
+    try {
+      for (const inv of acceptedInvites) {
+        await db.pool.query(
+          'INSERT IGNORE INTO project_members (project_id, user_id, role_id) VALUES (?, ?, ?)',
+          [inv.project_id, activeUser.id, inv.role_id]
+        );
+        await db.pool.query(
+          "UPDATE project_invitations SET status = 'accepted' WHERE id = ?",
+          [inv.id]
+        );
+      }
+    } catch (invErr) {}
+  }
+
+  const token = createSession(activeUser);
+  return res.json({
+    success: true,
+    message: 'Đặt mật khẩu lần đầu thành công và đã đăng nhập',
+    token,
+    user: {
+      id: activeUser.id,
+      email: activeUser.email,
+      full_name: activeUser.full_name,
+      role_name: activeUser.role_name,
+      role_display_name: activeUser.role_display_name
+    }
+  });
+}
+
 module.exports = {
   login,
   register,
   getMe,
   logout,
   getRoles,
-  unlockDev
+  unlockDev,
+  firstLogin
 };

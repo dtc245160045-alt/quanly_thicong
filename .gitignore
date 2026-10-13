@@ -3,3 +3,7 @@ node_modules/
 *.log
 .DS_Store
 dist/
+backups/
+temp_backups/
+backend/uploads/diaries/*
+!backend/uploads/diaries/.gitkeep
